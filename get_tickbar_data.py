@@ -40,17 +40,14 @@ def get_tickbar(tickbarr: str, idioma: str, sector: str):
         cursor = conn.cursor()
         p_menserro = cursor.var(cx_Oracle.STRING)
         cursor.callproc("tzprc_traztick", [tickbarr, idioma, sector, p_menserro])
-        print(f"Mensaje del procedimiento: {p_menserro.getvalue()}")
 
         if p_menserro.getvalue():
             print(f"Error: {p_menserro.getvalue()}")
             return None
         else:
-            list_df = []
             dicc_df = {}
             for temp_names in list_temp_dfs:
                 dicc_df[temp_names] = get_df_temp(temp_names, conn)
-                #list_df.append(get_df_temp(temp_names, conn))
             
             return dicc_df
     except Exception as e:
@@ -65,7 +62,6 @@ def convert_df_to_json(df):
     return result_json
 
 def make_json_from_dfs(dicc_df):
-    print("entramos a make main")
     dicc_main = {}
     for temp_name in list_temp_dfs:
         json_value = convert_df_to_json(dicc_df[temp_name])
@@ -78,12 +74,17 @@ def save_json_to_file(json_data, filename="output.json"):
         f.write(json_data)  # Guarda el JSON en el archivo
     print(f"JSON guardado en {filename}")
 
+def get_json_from_tickbarr(tickbarr: str):
+    dicc_df = get_tickbar(tickbarr, "es", None)
+    return make_json_from_dfs(dicc_df)
+
+
 # tickbarrs por probar: 089853705010  -  088932801353
 
-dicc_df = get_tickbar("089853705010", "es", None)
+#dicc_df = get_tickbar("089853705010", "es", None)
 #print(dicc_df)
-main_json = make_json_from_dfs(dicc_df)
-save_json_to_file(main_json)
+#main_json = make_json_from_dfs(dicc_df)
+#save_json_to_file(main_json, "segundo.json")
 #print(main_json)
 
 
