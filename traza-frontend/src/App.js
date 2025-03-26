@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import './App.css'; // Opcional: para estilos básicos
+import './App.css';
 
 import Header from './components/Header';
-import './components/Header.css'; // Asegúrate de importar los estilos
+import './components/Header.css';
 
 
 function App() {
@@ -16,10 +16,10 @@ function App() {
   const BASE_URL = 'https://api.gateway.ethswarm.org/bzz/';
 
   const handleSubmit = (e) => {
-    e.preventDefault(); // Evita que el formulario recargue la página
-    if (!inputText.trim()) return; // Evita enviar texto vacío
+    e.preventDefault(); 
+    if (!inputText.trim()) return; 
 
-    const finalUrl = `${BASE_URL}${inputText}`; // Construye la URL final
+    const finalUrl = `${BASE_URL}${inputText}`; 
     setApiUrl(finalUrl);
     fetchData(finalUrl);
   };
@@ -42,7 +42,7 @@ function App() {
   return (
     <div className="container">
       <Header />
-      <h1>Buscador de datos JSON</h1>
+      <h1>Enter the tickbarr Hash</h1>
       
       {/* Formulario con input y botón */}
       <form onSubmit={handleSubmit} className="search-box">
@@ -68,8 +68,33 @@ function App() {
       {/* Muestra los datos JSON o un mensaje de error */}
       {data ? (
         <div className="json-result">
-          <h2>Resultados:</h2>
-          <pre>{JSON.stringify(data, null, 2)}</pre> {/* Formato legible */}
+          {/* Sección Cliente */}
+          <div className="data-section">
+            <h2 className="section-title">Cliente</h2>
+            <div className="section-content">
+              <p><strong>Código Barras:</strong> {data.tztotrazwebinfo[0].TTICKBARR}</p>
+              <p><strong>Nombre Cliente:</strong> {data.tztotrazwebinfo[0].TNOMBCLIE}</p>
+            </div>
+          </div>
+
+          {/* Sección Atributos */}
+          <div className="data-section">
+            <h2 className="section-title">Atributos</h2>
+            <div className="section-content">
+              <p><strong>Código Etiqueta:</strong> {data.tztotrazwebinfo[0].TCODIETIQCLIE}</p>
+              <p><strong>Talla:</strong> {data.tztotrazwebinfo[0].TCODITALL}</p>
+            </div>
+          </div>
+
+          {/* Sección Información Adicional */}
+          <div className="data-section">
+            <h2 className="section-title">Información Adicional</h2>
+            <div className="section-content">
+              <p><strong>Descripción Prenda:</strong> {data.tztotrazwebinfo[0].TDESCPREN}</p>
+              <p><strong>Tipo Prenda:</strong> {data.tztotrazwebinfo[0].TDESCTIPOPREN}</p>
+              <p><strong>Fecha Ingreso:</strong> {data.tztotrazwebinfo[0].TFECHINGRESTA}</p>
+            </div>
+          </div>
         </div>
       ) : (
         apiUrl && !loading && <p>No se encontraron datos.</p>

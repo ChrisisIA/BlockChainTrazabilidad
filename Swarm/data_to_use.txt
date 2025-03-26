@@ -1,0 +1,15 @@
+tztotrazwebinfo: INFO -> completo
+
+tztotrazwebalma: WAREHOUSE  completo
+
+tztotrazwebacab, tztotrazwebacabmedi, '': GARMENT FINISHING -> falta
+
+tztotrazwebcost, tztotrazwebcostoper: SEWING completo
+
+tztotrazwebcort, tztotrazwebcortoper: CUTTING completo
+
+tztotrazwebtint, '': FABRIC DYEING -> falta chemicals
+
+tztotrazwebteje, tztodetateje: KNITTING completo
+
+tztotrazwebhilo, tztotrazwebhilolote, tztotrazwebhiloloteprin: YARN SUPPLYING 
