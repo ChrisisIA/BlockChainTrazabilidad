@@ -10,6 +10,6 @@ tztotrazwebcort, tztotrazwebcortoper: CUTTING completo
 
 tztotrazwebtint, '': FABRIC DYEING -> falta chemicals
 
-tztotrazwebteje, tztodetateje: KNITTING completo
+tztotrazwebteje, -/tztodetateje/: KNITTING completo
 
 tztotrazwebhilo, tztotrazwebhilolote, tztotrazwebhiloloteprin: YARN SUPPLYING 

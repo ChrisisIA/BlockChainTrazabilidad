@@ -13,6 +13,8 @@ bower_components
 
 *.sublime*
 
+Swarm/.env
+
 psd
 thumb
 sketch
