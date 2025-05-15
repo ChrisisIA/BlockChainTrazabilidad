@@ -13,3 +13,4 @@ tztotrazwebtint, '': FABRIC DYEING -> falta chemicals
 tztotrazwebteje, -/tztodetateje/: KNITTING completo
 
 tztotrazwebhilo, tztotrazwebhilolote, tztotrazwebhiloloteprin: YARN SUPPLYING 
+gjh
