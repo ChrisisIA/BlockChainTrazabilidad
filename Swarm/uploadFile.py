@@ -23,10 +23,11 @@ def upload_to_swarm(tickbarr: str, batch_stamp: str):
     try:
         response_data = response.json()
         swarm_hash = response_data["reference"]
-        print("JSON subido correctamente.")
+        print("Subido Correctamente.")
+        print("Tickbarr:", tickbarr)
         print("Hash Swarm:", swarm_hash)
         return swarm_hash
     except requests.exceptions.JSONDecodeError:
         print("Error: la respuesta no contiene JSON válido. Respuesta completa:", response.text)
 
-#swarm_hash = upload_to_swarm("088932801353", "fe0766b58a144b7f03ea84fab75b6e0037f05ecd1d7397a7380a20ea26000447")
+#swarm_hash = upload_to_swarm("089744701145", "742bfeab75365749b4a909f1bc384a06ae98a8cb9e9d2850aa4c3209bbdd4a0e")

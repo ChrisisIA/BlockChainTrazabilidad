@@ -4,9 +4,11 @@ import cx_Oracle
 from dotenv import load_dotenv
 import json
 import math
+import warnings
 
 load_dotenv()
 os.environ["NLS_LANG"] = ".AL32UTF8"
+warnings.filterwarnings('ignore')
 
 DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
@@ -86,10 +88,11 @@ def get_tickbar(tickbarr: str, idioma: str, sector: str):
             dicc_df = {}
             for temp_names in list_temp_dfs:
                 dicc_df[temp_names] = get_df_temp(temp_names, conn)
-            
+
             return dicc_df
     except Exception as e:
-        print(e)
+        print(f"Error en get_tickbar: {e}")
+        return None
     finally:
         cursor.close()
         conn.close()
@@ -100,21 +103,34 @@ def convert_df_to_json(df):
     return result_json
 
 def make_json_from_dfs(dicc_df):
+    if dicc_df is None:
+        print("Error: dicc_df es None. No se puede convertir a JSON.")
+        return None
+
     dicc_main = {}
     for temp_name in list_temp_dfs:
-        json_value = convert_df_to_json(dicc_df[temp_name])
-        dicc_main[temp_name] = json.loads(json_value)
+        if temp_name in dicc_df and dicc_df[temp_name] is not None:  # Check if key exists and DataFrame is not None
+            json_value = convert_df_to_json(dicc_df[temp_name])
+            dicc_main[temp_name] = json.loads(json_value)
     main_json = json.dumps(dicc_main, ensure_ascii=False, indent=1)
     return main_json
 
 def save_json_to_file(json_data, filename="output.json"):
     with open(filename, "w", encoding="utf-8") as f:
         f.write(json_data)  # Guarda el JSON en el archivo
-    print(f"JSON guardado en {filename}")
+    #print(f"JSON guardado en {filename}")
 
 def get_json_from_tickbarr(tickbarr: str):
     dicc_df = get_tickbar(tickbarr, "es", None)
+    if dicc_df is None:
+        print(f"Error: No se pudo obtener datos para el tickbarr {tickbarr}")
+        return None
+
     first_json = make_json_from_dfs(dicc_df)
+    if first_json is None:
+        print(f"Error: No se pudo convertir datos a JSON para el tickbarr {tickbarr}")
+        return None
+
     main_json = clean_relevant_json(json.loads(first_json))
     return main_json
 
@@ -143,13 +159,13 @@ def clean_relevant_json(json_data):
 
 # tickbarrs por probar: 089853705010  -  088932801353
 
-dicc_df = get_tickbar("090093910362", "es", None)
-print(dicc_df)
-main_json = make_json_from_dfs(dicc_df)
-clean_json = clean_relevant_json(json.loads(main_json))
-#print(clean_json)
-save_json_to_file(main_json, "segundo.json")
-save_json_to_file(clean_json, "clean.json")
+# dicc_df = get_tickbar("090093910362", "es", None)
+# print(dicc_df)
+# main_json = make_json_from_dfs(dicc_df)
+# clean_json = clean_relevant_json(json.loads(main_json))
+# #print(clean_json)
+# save_json_to_file(main_json, "segundo.json")
+# save_json_to_file(clean_json, "clean.json")
 #print(main_json)
 
 
