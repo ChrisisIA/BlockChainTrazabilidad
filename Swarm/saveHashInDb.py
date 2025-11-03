@@ -2,10 +2,9 @@ import pandas as pd
 import os
 import pymysql
 import warnings
+
 from dotenv import load_dotenv
 
-from uploadFile import upload_to_swarm
-from oracle_tickbarrs import get_tickbarrs_yesterday
 
 # Cargar las variables de entorno
 load_dotenv()
@@ -36,24 +35,62 @@ def connect_to_my_db():
         print("falló al conectarse a la base de datos de MariaDB")
         return None
 
+def get_version_from_same_tickbarr(tickbarr):
+    conn = connect_to_my_db()
+    if conn:
+        try:
+            query = "SELECT * FROM apdobloctrazhash WHERE TTICKBARR = %s"
+            df = pd.read_sql(query, conn, params=(tickbarr,))
+            if df.empty:
+                return 1
+            else:
+                version = df['TNUMEVERS'].max() + 1
+                return version
+        except Exception as e:
+            print(e)
+            return 0
+        
+def get_version_from_same_tickbarr_error(tickbarr):
+    conn = connect_to_my_db()
+    if conn:
+        try:
+            query = "SELECT * FROM apdoblochasherror WHERE TTICKBARR = %s"
+            df = pd.read_sql(query, conn, params=(tickbarr,))
+            if df.empty:
+                return 1
+            else:
+                version = df['TNUMEVERS'].max() + 1
+                return version
+        except Exception as e:
+            print(e)
+            return 0
+
 def save_tickbarr_hash_to_db(tickbarr, hash):
     conn = connect_to_my_db()
     if conn:
         try:
-            query = "INSERT INTO apdobloctrazhash (TTICKBARR, TTICKHASH) VALUES (%s, %s)"
+            query = "INSERT INTO apdobloctrazhash (TTICKBARR, TNUMEVERS, TTICKHASH) VALUES (%s, %s, %s)"
+            version = get_version_from_same_tickbarr(tickbarr)
             with conn.cursor() as cursor:
-                cursor.execute(query, (tickbarr, hash))
+                cursor.execute(query, (tickbarr, version, hash))
             conn.commit()
             conn.close()
         except Exception as e:
             print(e)
 
-def up_tickbarr_to_swarm(stamp):
-    df = get_tickbarrs_yesterday().head(16)
-    print(df)
-    for tickbarr in df['TTICKBARR']:
-        hash = upload_to_swarm(tickbarr, stamp)
-        save_tickbarr_hash_to_db(tickbarr, hash)
+def save_failed_tickbarr(tickbarr, error_message):
+    conn = connect_to_my_db()
+    if conn:
+        try:
+            query = "INSERT INTO apdoblochasherror (TTICKBARR, TNUMEVERS, TMENSERRO) VALUES (%s, %s, %s)"
+            version = get_version_from_same_tickbarr_error(tickbarr)
+            with conn.cursor() as cursor:
+                cursor.execute(query, (tickbarr, version, error_message))
+            conn.commit()
+            conn.close()
+        except Exception as e:
+            print(e)
+
 
 # df = pd.read_excel('Tickbarrs_small.xlsx')
 
@@ -68,4 +105,4 @@ def up_tickbarr_to_swarm(stamp):
 # Mostrar las primeras filas del DataFrame
 #print(df)
 
-up_tickbarr_to_swarm("742bfeab75365749b4a909f1bc384a06ae98a8cb9e9d2850aa4c3209bbdd4a0e")
+#print(get_version_from_same_tickbarr("072936309633"))

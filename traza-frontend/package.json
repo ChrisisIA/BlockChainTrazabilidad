@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "homepage": "/intranet/planeamiento/trazabilidad_blockchain",
   "private": true,
+  "proxy": "http://128.0.17.5:5000",
   "dependencies": {
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

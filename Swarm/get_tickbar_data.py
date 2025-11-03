@@ -82,8 +82,14 @@ def get_tickbar(tickbarr: str, idioma: str, sector: str):
         cursor.callproc("tzprc_traztick", [tickbarr, idioma, sector, p_menserro])
 
         if p_menserro.getvalue():
-            print(f"Error: {p_menserro.getvalue()}")
-            return None
+            print("Error en procedimiento:")
+            print(f"{p_menserro.getvalue()}")
+            print("Intentando obtener data...")
+            dicc_df = {}
+            for temp_names in list_temp_dfs:
+                dicc_df[temp_names] = get_df_temp(temp_names, conn)
+
+            return dicc_df
         else:
             dicc_df = {}
             for temp_names in list_temp_dfs:
@@ -92,7 +98,7 @@ def get_tickbar(tickbarr: str, idioma: str, sector: str):
             return dicc_df
     except Exception as e:
         print(f"Error en get_tickbar: {e}")
-        return None
+        return {}
     finally:
         cursor.close()
         conn.close()
@@ -159,7 +165,7 @@ def clean_relevant_json(json_data):
 
 # tickbarrs por probar: 089853705010  -  088932801353
 
-# dicc_df = get_tickbar("090093910362", "es", None)
+#dicc_df = get_tickbar("072936101144", "es", None)
 # print(dicc_df)
 # main_json = make_json_from_dfs(dicc_df)
 # clean_json = clean_relevant_json(json.loads(main_json))
