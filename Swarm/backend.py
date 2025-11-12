@@ -38,8 +38,6 @@ db_config = {
     'collation': 'utf8mb4_general_ci'
 }
 
-DASHBOARD_URL = "http://128.0.16.240:8501"
-
 # Configuración del DSN de Oracle (solo configuración, no conexión)
 ORACLE_DSN = cx_Oracle.makedsn(DB_HOST, DB_PORT, sid=DB_NAME)
 
@@ -128,7 +126,7 @@ def login():
     if verify == "Verificacion Correcta":
         additional_claims = {"username": username}
         access_token = create_access_token(identity=usercode, additional_claims=additional_claims)
-        return jsonify({"access_token": access_token, "redirect_url": DASHBOARD_URL}), 200
+        return jsonify({"access_token": access_token}), 200
     else:
         return jsonify({"message": "Usuario o contraseña incorrecta"}), 401
 
@@ -185,6 +183,115 @@ def get_hash():
 
     except Exception as e:
         print(f"Error en get_hash: {e}")
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+@app.route('/filter_data', methods=['POST'])
+def filter_data():
+    """
+    Filtra datos de apdobloctrazhash según parámetros opcionales.
+    Acepta 1 o más filtros: numecaja, esticlie, etiqclie, coditall
+    """
+    conn = None
+    cursor = None
+    try:
+        data = request.json
+        numecaja = data.get("numecaja")
+        esticlie = data.get("esticlie")
+        etiqclie = data.get("etiqclie")
+        coditall = data.get("coditall")
+
+        # Construir query dinámicamente según los filtros proporcionados
+        where_clauses = []
+        params = []
+
+        if numecaja:
+            where_clauses.append("TNUMECAJA = %s")
+            params.append(numecaja)
+
+        if esticlie:
+            where_clauses.append("TESTICLIE = %s")
+            params.append(esticlie)
+
+        if etiqclie:
+            where_clauses.append("TETIQCLIE = %s")
+            params.append(etiqclie)
+
+        if coditall:
+            where_clauses.append("TCODITALL = %s")
+            params.append(coditall)
+
+        # Validar que al menos un filtro fue proporcionado
+        if not where_clauses:
+            return jsonify({
+                "error": "Debe proporcionar al menos un filtro (numecaja, esticlie, etiqclie o coditall)"
+            }), 400
+
+        # Conectar a la base de datos
+        conn = connect_to_my_db()
+        if not conn:
+            return jsonify({"error": "Error de conexión a la base de datos"}), 500
+
+        cursor = conn.cursor(pymysql.cursors.DictCursor)  # Usar DictCursor para obtener resultados como diccionarios
+
+        # Construir query completo
+        where_sql = " AND ".join(where_clauses)
+        query = f"""
+        SELECT
+            TTICKBARR,
+            TNUMEVERS,
+            TNUMECAJA,
+            TESTICLIE,
+            TETIQCLIE,
+            TCODITALL,
+            TTICKHASH,
+            TSAVEFECH
+        FROM apdobloctrazhash
+        WHERE {where_sql}
+        ORDER BY TSAVEFECH DESC
+        """
+
+        cursor.execute(query, tuple(params))
+        results = cursor.fetchall()
+
+        if results:
+            # Convertir datetime a string para JSON serialization
+            for row in results:
+                if 'TSAVEFECH' in row and row['TSAVEFECH']:
+                    row['TSAVEFECH'] = row['TSAVEFECH'].strftime('%Y-%m-%d %H:%M:%S')
+
+            return jsonify({
+                "success": True,
+                "count": len(results),
+                "filters_applied": {
+                    "numecaja": numecaja,
+                    "esticlie": esticlie,
+                    "etiqclie": etiqclie,
+                    "coditall": coditall
+                },
+                "data": results
+            }), 200
+        else:
+            return jsonify({
+                "success": True,
+                "count": 0,
+                "message": "No se encontraron resultados con los filtros proporcionados",
+                "filters_applied": {
+                    "numecaja": numecaja,
+                    "esticlie": esticlie,
+                    "etiqclie": etiqclie,
+                    "coditall": coditall
+                },
+                "data": []
+            }), 200
+
+    except Exception as e:
+        print(f"Error en filter_data: {e}")
         return jsonify({"error": f"Error interno: {str(e)}"}), 500
 
     finally:

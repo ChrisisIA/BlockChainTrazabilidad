@@ -10,6 +10,7 @@ import { translations } from "@/lib/i18n"
 import QRScanner from "./qr-scanner"
 import ScannerSelector from "./scanner-selector"
 import BarcodeScanner from "./barcode-scanner"
+import FilterTable from "./filter-table"
 
 interface HashInputProps {
   onSubmit: (hash: string) => void
@@ -98,28 +99,14 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
   const inputBgClass = isDark
     ? "bg-slate-700 border-slate-600 text-white placeholder-slate-400"
     : "bg-slate-100 border-slate-300 text-slate-900 placeholder-slate-500"
-  const featureBgClass = isDark ? "bg-slate-700 hover:bg-slate-600" : "bg-slate-200 hover:bg-slate-300"
-  const featureTextClass = isDark ? "text-slate-300" : "text-slate-700"
-
-  const tabs = [
-    { icon: "📋", label: t.newTicket, enabled: true },
-    { icon: "ℹ️", label: t.garmentInfo, enabled: false },
-    { icon: "🏭", label: t.warehouse, enabled: false },
-    { icon: "👕", label: t.garmentFinishing, enabled: false },
-    { icon: "🪡", label: t.sewing, enabled: false },
-    { icon: "✂️", label: t.cutting, enabled: false },
-    { icon: "🎨", label: t.fabricDyeing, enabled: false },
-    { icon: "🧶", label: t.knitting, enabled: false },
-    { icon: "🧵", label: t.yarnSupplying, enabled: false },
-  ]
 
   const displayError = localError || error
 
   return (
-    <div className={`min-h-screen flex flex-col items-center justify-center px-4 py-12 ${bgClass}`}>
-      <div className="w-full max-w-4xl">
+    <div className={`min-h-screen flex flex-col items-center justify-center px-4 py-6 md:py-12 ${bgClass}`}>
+      <div className="w-full max-w-2xl lg:max-w-5xl xl:max-w-6xl">
         {/* Header with Theme Toggle and Language Selector */}
-        <div className="flex justify-end gap-2 mb-6">
+        <div className="flex justify-end gap-2 mb-4 md:mb-6">
           <button
             onClick={() => setLanguage(language === "en" ? "es" : "en")}
             className={`px-3 py-2 rounded-lg transition-colors flex items-center gap-2 ${
@@ -146,44 +133,22 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
         </div>
 
         {/* Header */}
-        <div className="text-center mb-12">
+        <div className="text-center mb-8">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-lg">⛓</span>
+            <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-lg flex items-center justify-center shadow-lg">
+              <span className="text-white font-bold text-2xl">⛓</span>
             </div>
-            <h1 className={`text-4xl md:text-5xl font-bold ${textClass}`}>{t.title}</h1>
+            <h1 className={`text-3xl md:text-5xl font-bold ${textClass}`}>{t.title}</h1>
           </div>
-          <p className={subtextClass}>{t.subtitle}</p>
-        </div>
-
-        {/* Features Grid - 5 columns x 2 rows */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-12">
-          {tabs.map((item, idx) => (
-            <div
-              key={idx}
-              className={`flex flex-col items-center justify-center p-4 rounded-lg transition-all cursor-pointer ${
-                item.enabled
-                  ? `${featureBgClass} ${featureTextClass}`
-                  : `${isDark ? "bg-slate-800 opacity-50" : "bg-slate-300 opacity-40"} cursor-not-allowed`
-              }`}
-              onClick={() => {
-                if (item.label === t.language) {
-                  setLanguage(language === "en" ? "es" : "en")
-                }
-              }}
-            >
-              <span className="text-2xl mb-2">{item.icon}</span>
-              <span className={`text-xs text-center font-medium ${featureTextClass}`}>{item.label}</span>
-            </div>
-          ))}
+          <p className={`${subtextClass} text-base md:text-lg`}>{t.subtitle}</p>
         </div>
 
         {/* Tickbarr Input Form */}
-        <div className={`${cardBgClass} rounded-xl p-8 border`}>
-          <h2 className={`text-2xl font-bold ${textClass} mb-6`}>{t.enterHash}</h2>
+        <div className={`${cardBgClass} rounded-xl p-6 md:p-8 border shadow-xl`}>
+          <h2 className={`text-xl md:text-2xl font-bold ${textClass} mb-6 text-center`}>{t.enterHash}</h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex-1 relative">
                 <Input
                   type="text"
@@ -191,14 +156,14 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
                   value={tickbarr}
                   onChange={(e) => setTickbarr(e.target.value)}
                   disabled={loading}
-                  className={`w-full px-4 py-3 ${inputBgClass} rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50`}
+                  className={`w-full px-4 py-4 text-base ${inputBgClass} rounded-lg focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 disabled:opacity-50`}
                 />
               </div>
               <button
                 type="button"
                 onClick={() => setShowScannerSelector(true)}
                 disabled={loading}
-                className={`px-4 py-3 rounded-lg transition-colors flex items-center gap-2 font-semibold ${
+                className={`px-6 py-4 rounded-lg transition-colors flex items-center justify-center gap-2 font-semibold whitespace-nowrap ${
                   isDark
                     ? "bg-slate-700 hover:bg-slate-600 text-slate-300 disabled:opacity-50"
                     : "bg-slate-200 hover:bg-slate-300 text-slate-700 disabled:opacity-50"
@@ -206,7 +171,7 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
                 title={t.scanQR}
               >
                 <Camera className="w-5 h-5" />
-                <span className="hidden sm:inline">{t.scanQR}</span>
+                <span>{t.scanQR}</span>
               </button>
             </div>
 
@@ -235,6 +200,9 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
 
           <p className={`${subtextClass} text-sm mt-6 text-center`}>{t.searchDescription}</p>
         </div>
+
+        {/* Filter Table Component */}
+        <FilterTable />
       </div>
 
       {showScannerSelector && (

@@ -10,16 +10,16 @@ load_dotenv()
 os.environ["NLS_LANG"] = ".AL32UTF8"
 warnings.filterwarnings('ignore')
 
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_HOST = os.getenv("DB_HOST")
-DB_PORT = int(os.getenv("DB_PORT"))
-DB_NAME = os.getenv("DB_NAME")
+DBIN_USER = os.getenv("DBIN_USER")
+DBIN_PASSWORD = os.getenv("DBIN_PASSWORD")
+DBIN_HOST = os.getenv("DBIN_HOST")
+DBIN_PORT = int(os.getenv("DBIN_PORT"))
+DBIN_NAME = os.getenv("DBIN_NAME")
 
 db_config = {
-    'user' : DB_USER,
-    'password' : DB_PASSWORD,
-    'dsn' : cx_Oracle.makedsn(DB_HOST, DB_PORT, DB_NAME)
+    'user' : DBIN_USER,
+    'password' : DBIN_PASSWORD,
+    'dsn' : cx_Oracle.makedsn(DBIN_HOST, DBIN_PORT, DBIN_NAME)
 }
 
 # select * from tztotrazwebinfo;
@@ -165,13 +165,13 @@ def clean_relevant_json(json_data):
 
 # tickbarrs por probar: 089853705010  -  088932801353
 
-#dicc_df = get_tickbar("072936101144", "es", None)
+dicc_df = get_tickbar("092000007059", "es", None)
 # print(dicc_df)
-# main_json = make_json_from_dfs(dicc_df)
-# clean_json = clean_relevant_json(json.loads(main_json))
+main_json = make_json_from_dfs(dicc_df)
+clean_json = clean_relevant_json(json.loads(main_json))
 # #print(clean_json)
-# save_json_to_file(main_json, "segundo.json")
-# save_json_to_file(clean_json, "clean.json")
+save_json_to_file(main_json, "segundo.json")
+save_json_to_file(clean_json, "clean.json")
 #print(main_json)
 
 

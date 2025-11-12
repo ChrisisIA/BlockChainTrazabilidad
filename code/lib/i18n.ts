@@ -8,6 +8,8 @@ export const translations = {
     enterHash: "Enter Your Tickbarr Code",
     searchPlaceholder: "Enter your tickbarr code...",
     search: "Search",
+    searching: "Searching...",
+    scanQR: "Scan",
     searchDescription: "Enter your tickbarr code to see its complete traceability on the Ethereum Swarm network",
 
     // Tabs
@@ -242,6 +244,8 @@ export const translations = {
     enterHash: "Ingresa tu Código Tickbarr",
     searchPlaceholder: "Ingresa tu código tickbarr...",
     search: "Buscar",
+    searching: "Buscando...",
+    scanQR: "Escanear",
     searchDescription: "Ingresa tu código tickbarr para ver su trazabilidad completa en la red Ethereum Swarm",
 
     // Tabs

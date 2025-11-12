@@ -65,14 +65,14 @@ def get_version_from_same_tickbarr_error(tickbarr):
             print(e)
             return 0
 
-def save_tickbarr_hash_to_db(tickbarr, hash):
+def save_tickbarr_hash_to_db(tickbarr, num_box, code_esty_clie, code_etiq_clie, code_tall, hash):
     conn = connect_to_my_db()
     if conn:
         try:
-            query = "INSERT INTO apdobloctrazhash (TTICKBARR, TNUMEVERS, TTICKHASH) VALUES (%s, %s, %s)"
+            query = "INSERT INTO apdobloctrazhash (TTICKBARR, TNUMEVERS, TNUMECAJA, TESTICLIE, TETIQCLIE, TCODITALL, TTICKHASH) VALUES (%s, %s, %s, %s, %s, %s, %s)"
             version = get_version_from_same_tickbarr(tickbarr)
             with conn.cursor() as cursor:
-                cursor.execute(query, (tickbarr, version, hash))
+                cursor.execute(query, (tickbarr, version, num_box, code_esty_clie, code_etiq_clie, code_tall, hash))
             conn.commit()
             conn.close()
         except Exception as e:

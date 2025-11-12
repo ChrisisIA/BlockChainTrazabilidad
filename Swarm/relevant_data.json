@@ -6,6 +6,7 @@
         "TNUMEVERSCLIE",
         "TCODIETIQCLIEXEDI",
         "TCODIETIQCLIE",
+        "TDESCETIQCLIE",
         "TCODITALL",
         "TCODIESTINETT",
         "TNUMEVERSESTINETT",
@@ -61,6 +62,7 @@
         "TCODIPERSAUDI",
         "TNOMBPERSAUDI",
         "TLOTEAUDIESTA",
+        "TPRENINSPMEDI",
         "TFECHINGRESTA",
         "TNUMECAJAESTA",
         "TFECHMODU",
@@ -77,6 +79,7 @@
         "TIDENCLIE",
         "TDESCDIME",
         "TMEDIDIME",
+        "TUNIDMEDI",
         "TTOLEDIME",
         "TMEDIDIMEAPT",
         "TMEDIDIMEFALL"
@@ -97,6 +100,7 @@
         "TFECHDESPCORT"
     ],
     "tztotrazwebcostoper" : [
+        "TCODIPERS",
         "TNOMBPERS",
         "TNUMEOPERESPE",
         "TCODIOPERESPEVARISECU",
@@ -122,6 +126,7 @@
         "TTIPOARTI",
         "TPEDISGT",
         "TNUMEUD",
+        "TKILOACAB",
         "TKILOPROG",
         "TREDUACAB",
         "TCODITELA",
@@ -179,6 +184,10 @@
         "TNOMBMAQUSTMP",
         "TMODEMAQUSTMP",
         "TFINASTMP",
+        "TMAQUPREPSTMP",
+        "TFABRMAQUPREPSTMP",
+        "TMAQUSTMP",
+        "TFABRMAQUSTMP",
         "TFECHCALITINT",
         "TFECHDESPTINT"
     ],
@@ -238,6 +247,7 @@
         "TZONAORIGHILO",
         "TNUMEORDECOMP",
         "TFECHORDECOMP",
-        "TNUMEFACTHILO"
+        "TNUMEFACTHILO",
+        "TGOTSCERT"
     ]
 }
