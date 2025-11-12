@@ -42,7 +42,7 @@ export default function GarmentInfoTab({ data, language }: GarmentInfoTabProps) 
       <div>
         <h3 className={sectionTitleClass}>{t.clientInformation}</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className={`${cardBgClass} rounded-lg p-6 md:col-span-2`}>
+          <div className={`${cardBgClass} rounded-lg p-6`}>
             <div className="space-y-4">
               <div>
                 <p className={labelClass}>{t.clientName}</p>
@@ -54,12 +54,16 @@ export default function GarmentInfoTab({ data, language }: GarmentInfoTabProps) 
               </div>
             </div>
           </div>
-          <div className={`${cardBgClass} rounded-lg p-6 flex items-center justify-center`}>
-            <div className="text-center">
+          <div className={`${cardBgClass} rounded-lg p-4 flex items-center justify-center min-h-[180px] md:col-span-2`}>
+            <div className="text-center w-full">
               <img
-                src="/client-logo.jpg"
+                src={`/logos/logo_${info.TCODICLIE}.png`}
                 alt="Client Logo"
-                className="w-24 h-24 object-contain mx-auto mb-2"
+                className="w-full h-auto max-h-[150px] object-contain mx-auto mb-2"
+                onError={(e) => {
+                  // Fallback to a placeholder image if the specific logo doesn't exist
+                  e.currentTarget.src = "/placeholder-logo.png"
+                }}
               />
               <p className={`${subtextClass} text-xs`}>{t.clientLogo}</p>
             </div>
