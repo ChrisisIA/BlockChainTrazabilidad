@@ -38,6 +38,21 @@ def get_tickbarrs_yesterday():
         finally:
             conn.close()
 
+def get_tickbarrs_yesterday2():
+    conn = connect_to_oracle_dbin()
+    if conn:
+        try:
+            query = "SELECT * FROM apdoprendas a WHERE trunc(a.tfechmovi) = trunc(sysdate - 1)"
+            df = pd.read_sql(query, conn)
+            if not df.empty:
+                return df
+            else:
+                return pd.DataFrame()
+        except Exception as e:
+            print(e)
+        finally:
+            conn.close()
+
 # def temp():
 #     conn = connect_to_oracle_dbin()
 #     if conn:

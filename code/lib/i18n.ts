@@ -1,3 +1,5 @@
+import { Main } from "next/document"
+
 export const translations = {
   en: {
     // Header
@@ -138,6 +140,7 @@ export const translations = {
     productionLineSection: "Production Line",
     sewingProductionLine: "Sewing Production Line",
     sewingProductionPlant: "Sewing Production Plant",
+    sewingOperators: "Sewing Operators",
     sewingProductionLineSupervisor: "Sewing Production Line Supervisor",
     sewingReceptionDate: "Sewing Reception Date",
 
@@ -209,6 +212,7 @@ export const translations = {
     dyeingProductionOrderAttended: "Dyeing Production Order Attended",
     nettalcoRawFabricId: "Nettalco Raw Fabric ID",
     gauge: "Gauge",
+    knittingItemType: "Item Type",
     knittingType: "Knitting Type",
     knittingMachineType: "Knitting Machine Type",
     rawThreadType: "Raw Thread Type",
@@ -219,6 +223,8 @@ export const translations = {
     yarnOfTheGarment: "Yarn Of The Garment",
     yarnBatch: "Yarn Batch",
     mainYarnProvider: "Main Yarn Provider",
+    mainYarnId: "Main Yarn ID",
+    mainYarn: "Main Yarn",
 
     // Login translations
     login: "Login",
@@ -376,6 +382,7 @@ export const translations = {
     productionLineSection: "Línea de Producción",
     sewingProductionLine: "Línea de Producción de Costura",
     sewingProductionPlant: "Planta de Producción de Costura",
+    sewingOperators: "Operadores de Costura",
     sewingProductionLineSupervisor: "Supervisor de Línea de Producción de Costura",
     sewingReceptionDate: "Fecha de Recepción de Costura",
 
@@ -447,6 +454,7 @@ export const translations = {
     dyeingProductionOrderAttended: "Orden de Producción de Teñido Atendida",
     nettalcoRawFabricId: "ID de Tela Cruda Nettalco",
     gauge: "Calibre",
+    knittingItemType: "Tipo de Artículo",
     knittingType: "Tipo de Tejido",
     knittingMachineType: "Tipo de Máquina de Tejido",
     rawThreadType: "Tipo de Hilo Crudo",
@@ -457,6 +465,8 @@ export const translations = {
     yarnOfTheGarment: "Hilo de la Prenda",
     yarnBatch: "Lote de Hilo",
     mainYarnProvider: "Proveedor de Hilo Principal",
+    mainYarnId: "Reducido de Hilado Principal",
+    mainYarn: "Hilado Principal",
 
     // Login translations
     login: "Iniciar sesión",

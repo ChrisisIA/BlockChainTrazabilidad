@@ -64,7 +64,7 @@ export default function YarnTab({ data, language }: YarnTabProps) {
               </p>
             </div>
             <div>
-              <p className={`${subtextClass} text-xs mb-1`}>{t.itemType}</p>
+              <p className={`${subtextClass} text-xs mb-1`}>{t.knittingItemType}</p>
               <p className={textClass}>{yarn.TDESCTIPOARTI || "-"}</p>
             </div>
             <div>

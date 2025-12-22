@@ -61,12 +61,22 @@ export default function CuttingTab({ data, language }: CuttingTabProps) {
               <div key={idx} className={`${cardBgClass} rounded-lg p-4 border ${borderClass}`}>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <p className={`${subtextClass} text-sm mb-1`}>{t.operationCode}</p>
-                    <p className={`${textClass} font-medium`}>{op.TCODIOPER}</p>
+                    <p className={`${subtextClass} text-sm mb-1`}>{t.operationPersonnel}</p>
+                    <p className={`${textClass} font-medium mb-3`}>({op.TCODIPERS}) {op.TNOMBPERS}</p>
+                    <div className="flex">
+                      <img
+                        src={`http://app.nettalco.com.pe/php/foto.php?codigo=${op.TCODIPERS}`}
+                        alt="Employee"
+                        className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                        onError={(e) => {
+                          e.currentTarget.src = "/placeholder-user.jpg"
+                        }}
+                      />
+                    </div>
                   </div>
                   <div>
                     <p className={`${subtextClass} text-sm mb-1`}>{t.operationDescription}</p>
-                    <p className={`${textClass} font-medium`}>{op.TDESCOPER}</p>
+                    <p className={`${textClass} font-medium`}>({op.TCODIOPER}) {op.TDESCOPER}</p>
                   </div>
                   <div>
                     <p className={`${subtextClass} text-sm mb-1`}>{t.operationDate}</p>
@@ -75,10 +85,6 @@ export default function CuttingTab({ data, language }: CuttingTabProps) {
                     </p>
                   </div>
                   <div>
-                    <p className={`${subtextClass} text-sm mb-1`}>{t.operationPersonnel}</p>
-                    <p className={`${textClass} font-medium`}>{op.TNOMBPERS}</p>
-                  </div>
-                  <div className="md:col-span-2">
                     <p className={`${subtextClass} text-sm mb-1`}>{t.ticketsNumber}</p>
                     <p className={`${textClass} font-medium`}>{op.TNUMETICK}</p>
                   </div>

@@ -1,7 +1,6 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { AlertCircle, Loader2, Search, ChevronLeft, ChevronRight } from "lucide-react"
@@ -16,7 +15,7 @@ interface FilterData {
   TETIQCLIE: string
   TCODITALL: string
   TTICKHASH: string
-  TSAVEFECH: string
+  TFECHGUAR: string
 }
 
 interface FilterResponse {
@@ -267,7 +266,7 @@ export default function FilterTable() {
                     <td className={`px-4 py-3 font-mono text-xs ${subtextClass}`} title={row.TTICKHASH}>
                       {row.TTICKHASH.substring(0, 12)}...
                     </td>
-                    <td className={`px-4 py-3 ${subtextClass} text-xs`}>{row.TSAVEFECH}</td>
+                    <td className={`px-4 py-3 ${subtextClass} text-xs`}>{row.TFECHGUAR}</td>
                   </tr>
                 ))}
               </tbody>

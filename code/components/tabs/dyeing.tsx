@@ -33,8 +33,19 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
   const textClass = isDark ? "text-white" : "text-slate-900"
   const borderClass = isDark ? "border-slate-600" : "border-slate-300"
 
-  const mainOrder = data?.tztotrazwebtint?.[0]
-  const dyeings = data?.tztotrazwebtint || []
+  const allDyeings = data?.tztotrazwebtint || []
+
+  // Filter main fabric (the one with TPEDISGT value)
+  const mainOrder = allDyeings.find((dye: any) => dye.TPEDISGT && String(dye.TPEDISGT).trim() !== "")
+
+  // Sort dyeings to show main fabric first, then others
+  const dyeings = [...allDyeings].sort((a: any, b: any) => {
+    const aHasPedisgt = a.TPEDISGT && String(a.TPEDISGT).trim() !== ""
+    const bHasPedisgt = b.TPEDISGT && String(b.TPEDISGT).trim() !== ""
+    if (aHasPedisgt && !bHasPedisgt) return -1
+    if (!aHasPedisgt && bHasPedisgt) return 1
+    return 0
+  })
 
   if (dyeings.length === 0) {
     return (
@@ -102,16 +113,24 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
 
           {/* Fabric Subsection */}
           <div className="mb-6 pb-4 border-b border-emerald-500/30">
-            <h4 className={`${sectionHeaderClass} font-medium mb-3 text-sm`}>{t.fabricSection}</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <p className={`${subtextClass} text-xs mb-1`}>{t.productionRequestNo}</p>
-                <p className={textClass}>{extractValue(dye.PEDISGT)}</p>
+                <p className={textClass}>{extractValue(dye.TPEDISGT)}</p>
               </div>
               <div>
                 <p className={`${subtextClass} text-xs mb-1`}>{t.dispatchUnitNo}</p>
                 <p className={textClass}>{dye.TNUMEUD || "-"}</p>
               </div>
+              <div>
+                <p className={`${subtextClass} text-xs mb-1`}>{t.programmedWeight}</p>
+                <p className={textClass}>{dye.TKILOACAB || "-"}</p>
+              </div>
+            </div>
+          </div>
+          <div className="mb-6 pb-4 border-b border-emerald-500/30">
+            <h4 className={`${sectionHeaderClass} font-medium mb-3 text-sm`}>{t.fabricSection}</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <p className={`${subtextClass} text-xs mb-1`}>{t.nettalcoFinishedFabricId}</p>
                 <p className={textClass}>{dye.TREDUACAB || "-"}</p>
@@ -152,6 +171,14 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
                 <p className={`${subtextClass} text-xs mb-1`}>{t.antipilling}</p>
                 <p className={textClass}>{getBooleanText(dye.TINDIANTIPILI, language)}</p>
               </div>
+              <div>
+                <p className={`${subtextClass} text-xs mb-1`}>{t.garmentComponentNo}</p>
+                <p className={textClass}>({dye.TNUMECOMP}) {dye.TDESCCOMP || "-"}</p>
+              </div>
+              <div>
+                <p className={`${subtextClass} text-xs mb-1`}>{t.garmentComponentType}</p>
+                <p className={textClass}>({dye.TTIPOCOMP}) {dye.TDESCTIPOCOMP || "-"}</p>
+              </div>
             </div>
           </div>
 
@@ -173,7 +200,7 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
               </div>
               <div>
                 <p className={`${subtextClass} text-xs mb-1`}>{t.productionOrderGroup}</p>
-                <p className={textClass}>{extractValue(dye.EDISGT)}</p>
+                <p className={textClass}>{extractValue(dye.TPEDISGT)}</p>
               </div>
               <div>
                 <p className={`${subtextClass} text-xs mb-1`}>{t.dyeingSetNo}</p>
@@ -231,6 +258,16 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
                 <p className={textClass}>
                   ({dye.TOPERCORTINIC}) {dye.TNOMBOPERCORTINIC}
                 </p>
+                <div className="flex mt-3">
+                  <img
+                    src={`http://app.nettalco.com.pe/php/foto.php?codigo=${dye.TOPERCORTINIC}`}
+                    alt="Employee"
+                    className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder-user.jpg"
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -268,6 +305,16 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
                 <p className={textClass}>
                   ({dye.TOPERSECAINIC}) {dye.TNOMBOPERSECAINIC}
                 </p>
+                <div className="flex mt-3">
+                  <img
+                    src={`http://app.nettalco.com.pe/php/foto.php?codigo=${dye.TOPERSECAINIC}`}
+                    alt="Employee"
+                    className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder-user.jpg"
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -305,6 +352,16 @@ export default function DyeingTab({ data, language }: DyeingTabProps) {
                 <p className={textClass}>
                   ({dye.TOPERACABINIC}) {dye.TNOMBOPERACABINIC}
                 </p>
+                <div className="flex mt-3">
+                  <img
+                    src={`http://app.nettalco.com.pe/php/foto.php?codigo=${dye.TOPERACABINIC}`}
+                    alt="Employee"
+                    className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                    onError={(e) => {
+                      e.currentTarget.src = "/placeholder-user.jpg"
+                    }}
+                  />
+                </div>
               </div>
             </div>
           </div>

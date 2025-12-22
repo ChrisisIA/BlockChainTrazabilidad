@@ -165,7 +165,7 @@ def clean_relevant_json(json_data):
 
 # tickbarrs por probar: 089853705010  -  088932801353
 
-dicc_df = get_tickbar("092000007059", "es", None)
+dicc_df = get_tickbar("092069706078", "es", None)
 # print(dicc_df)
 main_json = make_json_from_dfs(dicc_df)
 clean_json = clean_relevant_json(json.loads(main_json))

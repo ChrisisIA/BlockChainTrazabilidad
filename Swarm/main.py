@@ -24,8 +24,8 @@ def up_tickbarr_to_swarm(stamp):
         code_tall = row['TCODITALL']
 
         try:
-            hash = upload_to_swarm(tickbarr, stamp)
-            save_tickbarr_hash_to_db(tickbarr, num_box, code_esty_clie, code_etiq_clie, code_tall, hash)
+            data_columns, hash = upload_to_swarm(tickbarr, stamp)
+            save_tickbarr_hash_to_db(tickbarr, data_columns['caja'], code_esty_clie, code_etiq_clie, data_columns['talla'], hash, data_columns['cod_cliente'], data_columns['cliente'], data_columns['tipo_prenda'], data_columns['edad'], data_columns['genero'], data_columns['destino'], data_columns['tipo_tejido'])
             print(f"✓ Tickbarr {tickbarr} procesado exitosamente")
         except Exception as e:
             # Si falla, guardar el error y continuar con el siguiente
@@ -44,5 +44,5 @@ def run_program_at_scheduled_time(stamp, scheduled_time="05:00"):
             print("\nPrograma terminada por el usuario")
             break
 
-run_program_at_scheduled_time("b0d77f8784786099ee0433214bdb2c1ed9df380dc3f683b606def4fdc72e9836", "10:14")
+run_program_at_scheduled_time("2403c0c5e09cc8c3c8a7bb4daebe5a7ab74bd861a91f58a1eeeb57e58b93e59c", "10:48")
 #up_tickbarr_to_swarm("5d89c57cd80484dffb91deb89e16f7012d46d8267488732f7da5a11550990d89")

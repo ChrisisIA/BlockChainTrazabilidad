@@ -1,4 +1,5 @@
 import requests
+import json
 from get_tickbar_data import get_json_from_tickbarr  # Tu función que obtiene el JSON
 
 def upload_to_swarm(tickbarr: str, batch_stamp: str):
@@ -19,6 +20,22 @@ def upload_to_swarm(tickbarr: str, batch_stamp: str):
         data=json_data  # Pasamos directamente el JSON como string
     )
 
+    index_dicc = {}
+    data = json.loads(json_data)
+
+    index_dicc['cod_cliente'] = data['tztotrazwebinfo'][0]['TCODICLIE']
+    index_dicc['cliente'] = data['tztotrazwebinfo'][0]['TNOMBCLIE']
+    index_dicc['etiq_cliente'] = data['tztotrazwebinfo'][0]['TDESCETIQCLIE']
+    index_dicc['talla'] = data['tztotrazwebinfo'][0]['TCODITALL']
+    index_dicc['tipo_prenda'] = data['tztotrazwebinfo'][0]['TDESCTIPOPREN']
+    index_dicc['edad'] = data['tztotrazwebinfo'][0]['TDESCEDAD']
+    index_dicc['genero'] = data['tztotrazwebinfo'][0]['TDESCGENE']
+    index_dicc['caja'] = data['tztotrazwebalma'][0]['TNUMECAJA']
+    index_dicc['destino'] = data['tztotrazwebalma'][0]['TDESCDEST']
+    index_dicc['tipo_tejido'] = data['tztotrazwebteje'][0]['TDESCTIPOTEJI']
+
+    #print(index_dicc)
+
     # Verificar la respuesta
     try:
         response_data = response.json()
@@ -26,8 +43,8 @@ def upload_to_swarm(tickbarr: str, batch_stamp: str):
         print("Subido Correctamente.")
         print("Tickbarr:", tickbarr)
         print("Hash Swarm:", swarm_hash)
-        return swarm_hash
+        return index_dicc, swarm_hash
     except requests.exceptions.JSONDecodeError:
         print("Error: la respuesta no contiene JSON válido. Respuesta completa:", response.text)
 
-#swarm_hash = upload_to_swarm("089744701145", "742bfeab75365749b4a909f1bc384a06ae98a8cb9e9d2850aa4c3209bbdd4a0e")
+#dicc, swarm_hash = upload_to_swarm("089744701145", "2403c0c5e09cc8c3c8a7bb4daebe5a7ab74bd861a91f58a1eeeb57e58b93e59c")

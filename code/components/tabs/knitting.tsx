@@ -32,7 +32,23 @@ export default function KnittingTab({ data, language }: KnittingTabProps) {
   const textClass = isDark ? "text-white" : "text-slate-900"
   const borderClass = isDark ? "border-slate-600" : "border-slate-300"
 
-  const knittings = data?.tztotrazwebteje || []
+  const allKnittings = data?.tztotrazwebteje || []
+
+  // Remove duplicates based on TORDETEJE and TNUMEOB combination
+  const uniqueKnittings = allKnittings.filter((knit: any, index: number, self: any[]) => {
+    return index === self.findIndex((k: any) => (
+      k.TORDETEJE === knit.TORDETEJE && k.TNUMEOB === knit.TNUMEOB
+    ))
+  })
+
+  // Sort knittings to show main fabric (TTELAPRIN = "1") first, then complements (TTELAPRIN = "0")
+  const knittings = [...uniqueKnittings].sort((a: any, b: any) => {
+    const aIsMain = String(a.TTELAPRIN).trim() === "1"
+    const bIsMain = String(b.TTELAPRIN).trim() === "1"
+    if (aIsMain && !bIsMain) return -1
+    if (!aIsMain && bIsMain) return 1
+    return 0
+  })
 
   if (knittings.length === 0) {
     return (
@@ -86,8 +102,8 @@ export default function KnittingTab({ data, language }: KnittingTabProps) {
               <p className={textClass}>{knit.TNUMEGALG || "-"}</p>
             </div>
             <div>
-              <p className={`${subtextClass} text-xs mb-1`}>{t.itemType}</p>
-              <p className={textClass}>{knit.TTELAPRIN ? getFabricType(knit.TTELAPRIN, language) : "-"}</p>
+              <p className={`${subtextClass} text-xs mb-1`}>{t.knittingItemType}</p>
+              <p className={textClass}>{knit.TDESCTIPOARTI}</p>
             </div>
             <div>
               <p className={`${subtextClass} text-xs mb-1`}>{t.coloredThread}</p>
@@ -109,6 +125,9 @@ export default function KnittingTab({ data, language }: KnittingTabProps) {
               <p className={`${subtextClass} text-xs mb-1`}>{t.rawThreadType}</p>
               <p className={textClass}>
                 ({knit.TCODIMATEPRIM}) {knit.TDESCCODIMATEPRIM}
+              </p>
+              <p className={textClass}>
+                ({knit.TMATEPRIM}) {knit.TDESCMATEPRIM}
               </p>
             </div>
           </div>

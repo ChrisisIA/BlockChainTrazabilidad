@@ -250,10 +250,10 @@ def filter_data():
             TETIQCLIE,
             TCODITALL,
             TTICKHASH,
-            TSAVEFECH
+            TFECHGUAR
         FROM apdobloctrazhash
         WHERE {where_sql}
-        ORDER BY TSAVEFECH DESC
+        ORDER BY TFECHGUAR DESC
         """
 
         cursor.execute(query, tuple(params))
@@ -262,8 +262,8 @@ def filter_data():
         if results:
             # Convertir datetime a string para JSON serialization
             for row in results:
-                if 'TSAVEFECH' in row and row['TSAVEFECH']:
-                    row['TSAVEFECH'] = row['TSAVEFECH'].strftime('%Y-%m-%d %H:%M:%S')
+                if 'TFECHGUAR' in row and row['TFECHGUAR']:
+                    row['TFECHGUAR'] = row['TFECHGUAR'].strftime('%Y-%m-%d %H:%M:%S')
 
             return jsonify({
                 "success": True,

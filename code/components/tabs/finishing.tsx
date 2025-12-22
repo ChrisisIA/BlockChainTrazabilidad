@@ -45,7 +45,17 @@ export default function FinishingTab({ data, language }: FinishingTabProps) {
           </div>
           <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.weightCartonEmployee}</p>
-            <p className={`${textClass} font-medium`}>{finishing.TNOMBPERSPESA}</p>
+            <p className={`${textClass} font-medium mb-3`}>({finishing.TCODIPERSPESA}) {finishing.TNOMBPERSPESA}</p>
+            <div className="flex">
+              <img
+                src={`http://app.nettalco.com.pe/php/foto.php?codigo=${finishing.TCODIPERSPESA}`}
+                alt="Employee"
+                className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-4"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder-user.jpg"
+                }}
+              />
+            </div>
           </div>
           <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.grossWeight}</p>
@@ -66,15 +76,25 @@ export default function FinishingTab({ data, language }: FinishingTabProps) {
         <h3 className={sectionTitleClass}>{t.cartonPackingSection}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <p className={`${subtextClass} text-sm mb-1`}>{t.cartonPackingEmployee}</p>
+            <p className={`${textClass} font-medium mb-3`}>({finishing.TCODIPERSEMPA}) {finishing.TNOMBPERSEMPA}</p>
+            <div className="flex">
+              <img
+                src={`http://app.nettalco.com.pe/php/foto.php?codigo=${finishing.TCODIPERSEMPA}`}
+                alt="Employee"
+                className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder-user.jpg"
+                }}
+              />
+            </div>
+          </div>
+          <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.cartonPackingDate}</p>
             <p className={`${textClass} font-medium`}>
               {new Date(finishing.TFECHEMPA).toLocaleString(language === "en" ? "en-US" : "es-ES")}
             </p>
-          </div>
-          <div>
-            <p className={`${subtextClass} text-sm mb-1`}>{t.cartonPackingEmployee}</p>
-            <p className={`${textClass} font-medium`}>{finishing.TNOMBPERSEMPA}</p>
-          </div>
+          </div> 
         </div>
       </div>
 
@@ -82,14 +102,24 @@ export default function FinishingTab({ data, language }: FinishingTabProps) {
         <h3 className={sectionTitleClass}>{t.qualityAuditSection}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <p className={`${subtextClass} text-sm mb-1`}>{t.qualityAuditEmployee}</p>
+            <p className={`${textClass} font-medium mb-3`}>({finishing.TCODIPERSAUDI}) {finishing.TNOMBPERSAUDI}</p>
+            <div className="flex">
+              <img
+                src={`http://app.nettalco.com.pe/php/foto.php?codigo=${finishing.TCODIPERSAUDI}`}
+                alt="Employee"
+                className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder-user.jpg"
+                }}
+              />
+            </div>
+          </div>
+          <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.qualityAuditDate}</p>
             <p className={`${textClass} font-medium`}>
               {new Date(finishing.TFECHAUDI).toLocaleString(language === "en" ? "en-US" : "es-ES")}
             </p>
-          </div>
-          <div>
-            <p className={`${subtextClass} text-sm mb-1`}>{t.qualityAuditEmployee}</p>
-            <p className={`${textClass} font-medium`}>{finishing.TNOMBPERSAUDI}</p>
           </div>
           <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.qualityBatch}</p>
@@ -138,14 +168,24 @@ export default function FinishingTab({ data, language }: FinishingTabProps) {
         <h3 className={sectionTitleClass}>{t.finishingGarmentReceptionSection}</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
+            <p className={`${subtextClass} text-sm mb-1`}>{t.finishingGarmentReceptionEmployee}</p>
+            <p className={`${textClass} font-medium mb-3`}>({finishing.TCODIRECEBANDCOST}) {finishing.TNOMBRECEBANDCOST}</p>
+            <div className="flex">
+              <img
+                src={`http://app.nettalco.com.pe/php/foto.php?codigo=${finishing.TCODIRECEBANDCOST}`}
+                alt="Employee"
+                className="w-[150px] h-[150px] object-cover rounded-full border-2 border-emerald-400 ml-5"
+                onError={(e) => {
+                  e.currentTarget.src = "/placeholder-user.jpg"
+                }}
+              />
+            </div>
+          </div>
+          <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.finishingGarmentReception}</p>
             <p className={`${textClass} font-medium`}>
               {new Date(finishing.TFECHRECEBANDCOST).toLocaleString(language === "en" ? "en-US" : "es-ES")}
             </p>
-          </div>
-          <div>
-            <p className={`${subtextClass} text-sm mb-1`}>{t.finishingGarmentReceptionEmployee}</p>
-            <p className={`${textClass} font-medium`}>{finishing.TNOMBRECEBANDCOST}</p>
           </div>
           <div>
             <p className={`${subtextClass} text-sm mb-1`}>{t.garmentType}</p>
