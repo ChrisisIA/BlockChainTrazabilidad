@@ -25,12 +25,18 @@ export default function Home() {
     setData(null)
 
     try {
-      // Hash is already obtained from tickbarr endpoint, now fetch from Ethereum Swarm
-      const endpoint = `https://api.gateway.ethswarm.org/bzz/${hash}`
-      const response = await fetch(endpoint)
+      // Obtener datos de Swarm a través del backend proxy
+      const response = await fetch("http://128.0.17.5:5000/get_swarm_data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ hash }),
+      })
 
       if (!response.ok) {
-        throw new Error(`Error fetching data: ${response.statusText}`)
+        const errorData = await response.json()
+        throw new Error(errorData.error || `Error fetching data: ${response.statusText}`)
       }
 
       const jsonData = await response.json()

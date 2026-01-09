@@ -44,5 +44,4 @@ def run_program_at_scheduled_time(stamp, scheduled_time="05:00"):
             print("\nPrograma terminada por el usuario")
             break
 
-run_program_at_scheduled_time("2403c0c5e09cc8c3c8a7bb4daebe5a7ab74bd861a91f58a1eeeb57e58b93e59c", "10:48")
-#up_tickbarr_to_swarm("5d89c57cd80484dffb91deb89e16f7012d46d8267488732f7da5a11550990d89")
+run_program_at_scheduled_time("51179dfdae435f60e8b1a127cd7364ef560a6873d04ad2830e24630bff815d2e", "09:57")

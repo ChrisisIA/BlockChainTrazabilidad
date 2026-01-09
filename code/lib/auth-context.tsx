@@ -22,13 +22,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const savedToken = localStorage.getItem("auth_token")
-    const savedUsername = localStorage.getItem("auth_username")
-    if (savedToken) {
-      setToken(savedToken)
-      setUsername(savedUsername)
+    const validateAndRestoreToken = async () => {
+      const savedToken = localStorage.getItem("auth_token")
+      const savedUsername = localStorage.getItem("auth_username")
+
+      if (savedToken) {
+        try {
+          // Validar el token con el backend
+          const response = await fetch("http://128.0.17.5:5000/protected", {
+            method: "GET",
+            headers: {
+              "Authorization": `Bearer ${savedToken}`,
+            },
+          })
+
+          if (response.ok) {
+            // Token válido, restaurar sesión
+            setToken(savedToken)
+            setUsername(savedUsername)
+          } else {
+            // Token inválido o expirado, limpiar localStorage
+            localStorage.removeItem("auth_token")
+            localStorage.removeItem("auth_username")
+          }
+        } catch {
+          // Error de red, limpiar localStorage
+          localStorage.removeItem("auth_token")
+          localStorage.removeItem("auth_username")
+        }
+      }
+      setMounted(true)
     }
-    setMounted(true)
+
+    validateAndRestoreToken()
   }, [])
 
   const login = async (user: string, pass: string) => {

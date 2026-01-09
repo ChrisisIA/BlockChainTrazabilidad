@@ -2,6 +2,7 @@ import pandas as pd
 import os
 import pymysql
 import warnings
+import requests
 from flask import Flask, request, jsonify, render_template
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity, JWTManager
 from flask_cors import CORS
@@ -43,15 +44,14 @@ ORACLE_DSN = cx_Oracle.makedsn(DB_HOST, DB_PORT, sid=DB_NAME)
 
 app = Flask(__name__, template_folder="../frontend/templates", static_folder="../frontend/static")
 
-# Configuración de CORS - Permite peticiones desde el frontend
+# Configuración de CORS - Permite peticiones desde cualquier origen
 CORS(app, resources={
     r"/*": {
-        "origins": ["http://128.0.17.5:3000", "http://localhost:3000", "http://128.0.17.5"],
+        "origins": "*",
         "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         "allow_headers": ["Content-Type", "Authorization"],
         "expose_headers": ["Content-Type", "Authorization"],
-        "supports_credentials": True,
-        "send_wildcard": False,
+        "supports_credentials": False,
         "max_age": 3600
     }
 })
@@ -171,6 +171,7 @@ def get_hash():
 
         if result:
             hash_value = result[0]
+            print(f"Hash encontrado para tickbarr {tickbarr}: {hash_value}")
             return jsonify({
                 "tickbarr": tickbarr,
                 "hash": hash_value,
@@ -299,6 +300,39 @@ def filter_data():
             cursor.close()
         if conn:
             conn.close()
+
+@app.route('/get_swarm_data', methods=['POST'])
+def get_swarm_data():
+    """
+    Proxy endpoint para obtener datos JSON desde Ethereum Swarm.
+    Recibe un hash y retorna el JSON almacenado en Swarm.
+    """
+    try:
+        data = request.json
+        hash_value = data.get("hash")
+
+        if not hash_value:
+            return jsonify({"error": "Falta el parámetro hash"}), 400
+
+        # Llamar al gateway de Swarm
+        swarm_url = f"https://api.gateway.ethswarm.org/bzz/{hash_value}"
+        response = requests.get(swarm_url, timeout=30)
+
+        if response.status_code == 200:
+            return jsonify(response.json()), 200
+        else:
+            return jsonify({
+                "error": f"Error al obtener datos de Swarm: {response.status_code}"
+            }), response.status_code
+
+    except requests.exceptions.Timeout:
+        return jsonify({"error": "Timeout al conectar con Swarm gateway"}), 504
+    except requests.exceptions.RequestException as e:
+        print(f"Error de conexión con Swarm: {e}")
+        return jsonify({"error": "Error de conexión con Swarm gateway"}), 502
+    except Exception as e:
+        print(f"Error en get_swarm_data: {e}")
+        return jsonify({"error": f"Error interno: {str(e)}"}), 500
 
 if __name__ == "__main__":
     app.run(debug=True, host='0.0.0.0', port=5000)
