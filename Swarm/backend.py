@@ -10,6 +10,7 @@ from datetime import timedelta
 import cx_Oracle
 from dotenv import load_dotenv
 from flask_jwt_extended import get_jwt
+from chatbot import orquestador_bot, set_ai_model, AIModel, correct_user_input_with_ai, extract_filters_from_question
 
 # ------------------- Configuraciones y env ----------------------------
 
@@ -300,6 +301,109 @@ def filter_data():
             cursor.close()
         if conn:
             conn.close()
+
+@app.route('/chat', methods=['POST'])
+def chat():
+    """
+    Endpoint del chatbot de trazabilidad.
+    Recibe una pregunta del usuario y retorna la respuesta del bot orquestador.
+
+    Body JSON:
+        - question: Pregunta del usuario (requerido)
+        - model: Modelo de IA a usar (opcional, default: "deepseek")
+        - filters: Filtros opcionales para incluir en la consulta (opcional)
+
+    Returns:
+        - response: Respuesta del chatbot
+        - model_used: Modelo de IA utilizado
+        - corrections: Correcciones realizadas en la pregunta
+        - extracted_filters: Filtros extraídos de la pregunta para sincronizar con UI
+        - corrected_question: Pregunta corregida (si hubo correcciones)
+    """
+    try:
+        data = request.json
+        question = data.get("question")
+        model = data.get("model", "deepseek").lower()
+        filters = data.get("filters", {})
+
+        if not question:
+            return jsonify({"error": "Falta el parámetro 'question'"}), 400
+
+        # Configurar el modelo de IA según el parámetro
+        if model == "gemini":
+            set_ai_model(AIModel.GEMINI)
+        else:
+            set_ai_model(AIModel.DEEPSEEK)
+
+        print(f"[CHAT API] Pregunta original: {question}")
+        print(f"[CHAT API] Modelo: {model}")
+        print(f"[CHAT API] Filtros recibidos: {filters}")
+
+        # PASO 1: Corregir errores tipográficos en la pregunta
+        corrected_question, corrections = correct_user_input_with_ai(question)
+
+        if corrections:
+            print(f"[CHAT API] Correcciones aplicadas: {corrections}")
+            print(f"[CHAT API] Pregunta corregida: {corrected_question}")
+
+        # PASO 2: Extraer filtros de la pregunta corregida
+        extracted_filters = extract_filters_from_question(corrected_question, corrections)
+        print(f"[CHAT API] Filtros extraídos: {extracted_filters}")
+
+        # PASO 3: Combinar filtros del UI con los extraídos de la pregunta
+        # Los filtros del UI tienen prioridad (no se sobrescriben)
+        final_filters = extracted_filters.copy()
+        for key, value in filters.items():
+            if value and str(value).strip():
+                final_filters[key] = value  # UI filters override extracted
+
+        # PASO 4: Agregar filtros al contexto de la pregunta para el orquestador
+        question_with_context = corrected_question
+        if final_filters and any(final_filters.values()):
+            filter_context = []
+            filter_mappings = {
+                "client": ("cliente", "TDESCCLIE"),
+                "clientStyle": ("estilo cliente", "TESTICLIE"),
+                "boxNumber": ("número de caja", "TNUMECAJA"),
+                "label": ("etiqueta", "TETIQCLIE"),
+                "size": ("talla", "TCODITALL"),
+                "gender": ("género", "TTIPOGENE"),
+                "age": ("edad", "TTIPOEDAD"),
+                "garmentType": ("tipo de prenda", "TTIPOPREN"),
+            }
+
+            for key, value in final_filters.items():
+                if value and key in filter_mappings:
+                    filter_name, _ = filter_mappings[key]
+                    filter_context.append(f"{filter_name}: {value}")
+
+            if filter_context:
+                question_with_context = f"{corrected_question} (Filtrar por: {', '.join(filter_context)})"
+
+        print(f"[CHAT API] Pregunta final con contexto: {question_with_context}")
+
+        # PASO 5: Llamar al orquestador del chatbot
+        response = orquestador_bot(question_with_context, auto_confirm=True)
+
+        return jsonify({
+            "success": True,
+            "response": response,
+            "model_used": model,
+            "filters_applied": final_filters if any(final_filters.values()) else None,
+            # Nuevos campos para sincronización bidireccional
+            "corrections": corrections if corrections else None,
+            "extracted_filters": extracted_filters,
+            "corrected_question": corrected_question if corrections else None
+        }), 200
+
+    except Exception as e:
+        print(f"Error en /chat: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            "success": False,
+            "error": f"Error al procesar la consulta: {str(e)}"
+        }), 500
 
 @app.route('/get_swarm_data', methods=['POST'])
 def get_swarm_data():

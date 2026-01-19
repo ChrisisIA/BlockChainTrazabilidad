@@ -226,6 +226,28 @@ export const translations = {
     mainYarnId: "Main Yarn ID",
     mainYarn: "Main Yarn",
 
+    // Filter Panel
+    filters: "Filters",
+    filterClient: "Client",
+    filterBoxNumber: "Box Number",
+    filterLabel: "Label",
+    applyFilters: "Apply Filters",
+    clearFilters: "Clear Filters",
+    enterValue: "Enter",
+
+    // Chat Interface
+    traceabilityAssistant: "Traceability Assistant",
+    askAboutGarment: "Ask about garment data",
+    chatWelcome: "Hello! I'm your traceability assistant. Ask me anything about the garment data loaded in this session.",
+    typeQuestion: "Type your question...",
+    pressEnterToSend: "Press Enter to send your message",
+    placeholderResponse: "I'm a placeholder response. The chatbot backend is not yet connected.",
+
+    // Filter Sync
+    autoFilled: "Auto-filled",
+    filtersAutoFilled: "Filters auto-filled from your question",
+    correctionApplied: "Correction applied",
+
     // Login translations
     login: "Login",
     loginTitle: "Blockchain Traceability",
@@ -467,6 +489,28 @@ export const translations = {
     mainYarnProvider: "Proveedor de Hilo Principal",
     mainYarnId: "Reducido de Hilado Principal",
     mainYarn: "Hilado Principal",
+
+    // Filter Panel
+    filters: "Filtros",
+    filterClient: "Cliente",
+    filterBoxNumber: "Número de Caja",
+    filterLabel: "Etiqueta",
+    applyFilters: "Aplicar Filtros",
+    clearFilters: "Limpiar Filtros",
+    enterValue: "Ingrese",
+
+    // Chat Interface
+    traceabilityAssistant: "Asistente de Trazabilidad",
+    askAboutGarment: "Pregunta sobre datos de la prenda",
+    chatWelcome: "¡Hola! Soy tu asistente de trazabilidad. Pregúntame lo que quieras sobre los datos de la prenda cargada en esta sesión.",
+    typeQuestion: "Escribe tu pregunta...",
+    pressEnterToSend: "Presiona Enter para enviar tu mensaje",
+    placeholderResponse: "Soy una respuesta de prueba. El backend del chatbot aún no está conectado.",
+
+    // Filter Sync
+    autoFilled: "Auto-completado",
+    filtersAutoFilled: "Filtros completados automáticamente desde tu pregunta",
+    correctionApplied: "Corrección aplicada",
 
     // Login translations
     login: "Iniciar sesión",

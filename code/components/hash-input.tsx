@@ -10,7 +10,8 @@ import { translations } from "@/lib/i18n"
 import QRScanner from "./qr-scanner"
 import ScannerSelector from "./scanner-selector"
 import BarcodeScanner from "./barcode-scanner"
-import FilterTable from "./filter-table"
+import FilterPanel, { type FilterState } from "./filter-panel"
+import ChatInterface from "./chat-interface"
 
 interface HashInputProps {
   onSubmit: (hash: string) => void
@@ -24,8 +25,40 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
   const [showScannerSelector, setShowScannerSelector] = useState(false)
   const [showBarcodeScanner, setShowBarcodeScanner] = useState(false)
   const [localError, setLocalError] = useState<string | null>(null)
+  const [chatFilters, setChatFilters] = useState<FilterState | undefined>(undefined)
+  const [externalFiltersForPanel, setExternalFiltersForPanel] = useState<Partial<FilterState> | undefined>(undefined)
   const { theme, toggleTheme, language, setLanguage } = useTheme()
   const t = translations[language]
+
+  // Handler para filtros extraídos del chat (Chat → Filtros)
+  const handleFiltersFromChat = (extractedFilters: FilterState, corrections?: Record<string, string>) => {
+    // Merge: solo llenar campos vacíos del panel de filtros
+    const mergedFilters: FilterState = {
+      client: chatFilters?.client || extractedFilters.client || "",
+      clientStyle: chatFilters?.clientStyle || extractedFilters.clientStyle || "",
+      boxNumber: chatFilters?.boxNumber || extractedFilters.boxNumber || "",
+      label: chatFilters?.label || extractedFilters.label || "",
+      size: chatFilters?.size || extractedFilters.size || "",
+      gender: chatFilters?.gender || extractedFilters.gender || "",
+      age: chatFilters?.age || extractedFilters.age || "",
+      garmentType: chatFilters?.garmentType || extractedFilters.garmentType || "",
+    }
+
+    setChatFilters(mergedFilters)
+    // Enviar filtros externos al panel para actualización visual
+    setExternalFiltersForPanel(extractedFilters)
+
+    if (corrections && Object.keys(corrections).length > 0) {
+      console.log("[SYNC] Correcciones aplicadas:", corrections)
+    }
+  }
+
+  // Handler para filtros del panel (Filtros → Chat)
+  const handleFiltersFromPanel = (filters: FilterState) => {
+    setChatFilters(filters)
+    // Limpiar filtros externos ya que el usuario editó manualmente
+    setExternalFiltersForPanel(undefined)
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -201,8 +234,26 @@ export default function HashInput({ onSubmit, loading, error }: HashInputProps) 
           <p className={`${subtextClass} text-sm mt-6 text-center`}>{t.searchDescription}</p>
         </div>
 
-        {/* Filter Table Component */}
-        <FilterTable />
+        {/* Filters and Chatbot Section */}
+        <div className="mt-8 grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Filters Panel - Left Side */}
+          <div className="lg:col-span-1">
+            <FilterPanel
+              language={language}
+              onApplyFilters={handleFiltersFromPanel}
+              externalFilters={externalFiltersForPanel}
+            />
+          </div>
+
+          {/* Chat Interface - Right Side */}
+          <div className="lg:col-span-3">
+            <ChatInterface
+              language={language}
+              filters={chatFilters}
+              onFiltersExtracted={handleFiltersFromChat}
+            />
+          </div>
+        </div>
       </div>
 
       {showScannerSelector && (

@@ -386,6 +386,148 @@ Output: {{"corrected_question": "¿Cuántas prendas de LACOSTE hay?", "correctio
         print(f"[WARN] Error en corrección automática: {e}")
         return user_question, {}
 
+def extract_filters_from_question(question, corrections=None):
+    """
+    Extrae valores de filtro estructurados de la pregunta del usuario.
+    Usa IA para identificar entidades mencionadas y las valida contra la DB.
+
+    Args:
+        question: Pregunta del usuario (preferiblemente ya corregida)
+        corrections: Dict de correcciones realizadas {original: corregido}
+
+    Returns:
+        dict: Filtros extraídos con estructura compatible con FilterState del frontend
+              {client, clientStyle, boxNumber, label, size, gender, age, garmentType}
+    """
+    provider = get_ai_provider()
+
+    # Estructura de filtros vacía
+    empty_filters = {
+        "client": "",
+        "clientStyle": "",
+        "boxNumber": "",
+        "label": "",
+        "size": "",
+        "gender": "",
+        "age": "",
+        "garmentType": ""
+    }
+
+    # Obtener valores válidos de la DB para validación
+    valid_clients = get_unique_values('TDESCCLIE')
+    valid_genders = get_unique_values('TTIPOGENE')
+    valid_garment_types = get_unique_values('TTIPOPREN')
+    valid_sizes = get_unique_values('TCODITALL')
+    valid_ages = get_unique_values('TTIPOEDAD')
+
+    context = f"""
+Eres un extractor de entidades especializado en consultas sobre trazabilidad de prendas.
+
+**TU TAREA**:
+Analiza la pregunta del usuario y extrae cualquier valor que corresponda a los filtros disponibles.
+SOLO extrae valores que estén EXPLÍCITAMENTE mencionados en la pregunta.
+
+**FILTROS DISPONIBLES Y VALORES VÁLIDOS**:
+
+1. client (Cliente) - Valores válidos:
+{', '.join(valid_clients[:30]) if valid_clients else 'No disponible'}
+
+2. gender (Género) - Valores válidos:
+{', '.join(valid_genders) if valid_genders else 'No disponible'}
+
+3. garmentType (Tipo de Prenda) - Valores válidos:
+{', '.join(valid_garment_types[:20]) if valid_garment_types else 'No disponible'}
+
+4. size (Talla) - Valores válidos:
+{', '.join(valid_sizes[:20]) if valid_sizes else 'No disponible'}
+
+5. age (Edad) - Valores válidos:
+{', '.join(valid_ages) if valid_ages else 'No disponible'}
+
+6. clientStyle (Estilo Cliente) - Código alfanumérico del estilo
+7. boxNumber (Número de Caja) - Número de caja
+8. label (Etiqueta) - Código de etiqueta
+
+**REGLAS ESTRICTAS**:
+1. SOLO incluye valores que estén CLARAMENTE mencionados en la pregunta
+2. Si un valor mencionado coincide con un valor válido de la lista, usa el valor EXACTO de la lista
+3. Si no hay mención de un filtro, déjalo como string vacío ""
+4. NO inventes valores ni supongas filtros no mencionados
+5. Retorna SOLO JSON válido, sin explicaciones
+
+**FORMATO DE RESPUESTA** (JSON puro):
+{{"client": "", "clientStyle": "", "boxNumber": "", "label": "", "size": "", "gender": "", "age": "", "garmentType": ""}}
+
+**EJEMPLOS**:
+
+Pregunta: "¿Cuántas prendas de LACOSTE hay?"
+Respuesta: {{"client": "LACOSTE", "clientStyle": "", "boxNumber": "", "label": "", "size": "", "gender": "", "age": "", "garmentType": ""}}
+
+Pregunta: "¿Cuántas camisetas de hombre talla M hay?"
+Respuesta: {{"client": "", "clientStyle": "", "boxNumber": "", "label": "", "size": "M", "gender": "HOMBRE", "age": "", "garmentType": "CAMISETA"}}
+
+Pregunta: "¿Cuántos registros hay en total?"
+Respuesta: {{"client": "", "clientStyle": "", "boxNumber": "", "label": "", "size": "", "gender": "", "age": "", "garmentType": ""}}
+"""
+
+    try:
+        response_text = provider.chat(context, f"Pregunta: {question}", temperature=0.1)
+
+        # Limpiar formato markdown si existe
+        if response_text.startswith("```json"):
+            response_text = response_text.replace("```json", "").replace("```", "").strip()
+        elif response_text.startswith("```"):
+            response_text = response_text.replace("```", "").strip()
+
+        result = json.loads(response_text)
+
+        # Validar y normalizar los valores extraídos contra la DB
+        validated_filters = empty_filters.copy()
+
+        # Mapeo de campos a valores válidos y función de validación
+        field_validators = {
+            "client": valid_clients,
+            "gender": valid_genders,
+            "garmentType": valid_garment_types,
+            "size": valid_sizes,
+            "age": valid_ages
+        }
+
+        for field, value in result.items():
+            if field in validated_filters and value and str(value).strip():
+                value_str = str(value).strip()
+
+                # Si el campo tiene validación contra DB
+                if field in field_validators and field_validators[field]:
+                    # Usar fuzzy matching para encontrar el valor correcto
+                    matched_value, confidence = fuzzy_match_value(value_str, field_validators[field])
+                    if matched_value and confidence >= 0.7:
+                        validated_filters[field] = matched_value
+                        print(f"[FILTER EXTRACT] {field}: '{value_str}' → '{matched_value}' (conf: {confidence:.2f})")
+                    else:
+                        # Si no hay match bueno, usar el valor original
+                        validated_filters[field] = value_str
+                        print(f"[FILTER EXTRACT] {field}: '{value_str}' (sin match DB)")
+                else:
+                    # Campos sin validación (clientStyle, boxNumber, label)
+                    validated_filters[field] = value_str
+                    print(f"[FILTER EXTRACT] {field}: '{value_str}'")
+
+        # Contar filtros extraídos
+        extracted_count = sum(1 for v in validated_filters.values() if v)
+        if extracted_count > 0:
+            print(f"[FILTER EXTRACT] Total filtros extraídos: {extracted_count}")
+
+        return validated_filters
+
+    except json.JSONDecodeError as e:
+        print(f"[WARN] Error parseando JSON de filtros: {e}")
+        print(f"[WARN] Respuesta recibida: {response_text[:200] if 'response_text' in locals() else 'N/A'}")
+        return empty_filters
+    except Exception as e:
+        print(f"[WARN] Error extrayendo filtros: {e}")
+        return empty_filters
+
 def query_bot(question):
     """
     Bot generador de SQL: Convierte preguntas en español a queries SQL válidas.
@@ -495,7 +637,7 @@ def fetch_json_from_swarm(hash_value, timeout=10, verbose=True):
         return None
     except requests.exceptions.RequestException as e:
         if verbose:
-            print(f"  ✗ Error de red: {str(e)[:50]}")
+            print(f"  ✗ Error de red: {str(e)[:100]}")
         return None
     except json.JSONDecodeError:
         if verbose:
@@ -503,23 +645,418 @@ def fetch_json_from_swarm(hash_value, timeout=10, verbose=True):
         return None
     except Exception as e:
         if verbose:
-            print(f"  ✗ Error inesperado: {str(e)[:50]}")
+            print(f"  ✗ Error inesperado: {str(e)[:100]}")
         return None
+
+# ============================================================================
+# FUNCIÓN DE TRANSFORMACIÓN DE JSON PARA ANÁLISIS DE IA
+# ============================================================================
+
+# Mapeo de secciones a nombres legibles
+SECTION_NAMES = {
+    "tztotrazwebinfo": "INFORMACION_GENERAL",
+    "tztotrazwebalma": "ALMACEN",
+    "tztotrazwebacab": "ACABADO",
+    "tztotrazwebacabmedi": "MEDICIONES_ACABADO",
+    "tztotrazwebcost": "COSTURA",
+    "tztotrazwebcostoper": "OPERACIONES_COSTURA",
+    "tztotrazwebcort": "CORTE",
+    "tztotrazwebcortoper": "OPERACIONES_CORTE",
+    "tztotrazwebtint": "TINTORERIA",
+    "tztotrazwebteje": "TEJEDURIA",
+    "tztotrazwebhilo": "HILOS",
+    "tztotrazwebhilolote": "LOTES_HILO",
+    "tztotrazwebhiloloteprin": "PROVEEDORES_HILO"
+}
+
+# Mapeo de campos importantes a nombres legibles
+FIELD_NAMES = {
+    # Información general
+    "TCODICLIE": "codigo_cliente",
+    "TNOMBCLIE": "nombre_cliente",
+    "TCODIESTICLIE": "estilo_cliente",
+    "TCODITALL": "talla",
+    "TDESCPREN": "descripcion_prenda",
+    "TTIPOPREN": "tipo_prenda",
+    "TDESCTIPOPREN": "descripcion_tipo_prenda",
+    "TDESCEDAD": "edad",
+    "TDESCGENE": "genero",
+    "TGENDER": "gender",
+    # Almacén
+    "TNUMECAJA": "numero_caja",
+    "TCODIDEST": "codigo_destino",
+    "TDESCDEST": "destino",
+    "TFECHRECEALMA": "fecha_recepcion_almacen",
+    "TNOMBPERSRECEALMA": "persona_recepcion",
+    # Acabado
+    "TFECHPESA": "fecha_pesado",
+    "TNOMBPERSPESA": "persona_pesado",
+    "TFECHEMPA": "fecha_empaque",
+    "TNOMBPERSEMPA": "persona_empaque",
+    "TFECHAUDI": "fecha_auditoria",
+    "TNOMBPERSAUDI": "persona_auditoria",
+    # Costura
+    "TORDECOST": "orden_costura",
+    "TNUMELINECOST": "linea_costura",
+    "TDESCPLANCOST": "planta_costura",
+    "TNOMBPERSSUPE": "supervisor_costura",
+    # Operaciones costura
+    "TDESCOPERESPE": "operacion_costura",
+    "TNOMBPERS": "operario",
+    "TFECHLECT": "fecha_lectura",
+    # Corte
+    "TNUMEORDECORT": "orden_corte",
+    "TNUMETEND": "numero_tendido",
+    "TFECHDESPCORT": "fecha_despacho_corte",
+    # Operaciones corte
+    "TDESCOPER": "operacion_corte",
+    # Tintorería - MÁQUINAS IMPORTANTES
+    "TNUMEOB": "numero_OB",
+    "TNUMEUD": "numero_UD",
+    "TTIPOARTI": "tipo_articulo",
+    "TDESCTIPOARTI": "descripcion_tipo_articulo",
+    "TDESCTELA": "descripcion_tela",
+    "TDESCCOLN": "descripcion_color",
+    "TMAQUTENI": "codigo_maquina_tenido",
+    "TNOMBMAQUTENI": "maquina_tenido",
+    "TFABRMAQUTENI": "fabricante_maquina_tenido",
+    "TMAQUCORT": "codigo_maquina_cortadora",
+    "TNOMBMAQUCORT": "maquina_cortadora",
+    "TFABRMAQUCORT": "fabricante_maquina_cortadora",
+    "TMAQUSECA": "codigo_maquina_secado",
+    "TNOMBMAQUSECA": "maquina_secado",
+    "TFABRMAQUSECA": "fabricante_maquina_secado",
+    "TMAQUACAB": "codigo_rama",
+    "TNOMBMAQUACAB": "RAMA_ACABADO",  # MUY IMPORTANTE - Rama
+    "TFABRMAQUACAB": "fabricante_rama",
+    "TPARTTINT": "partida_tintoreria",
+    "TFECHTENIINIC": "fecha_inicio_tenido",
+    "TFECHTENIFINA": "fecha_fin_tenido",
+    "TFECHSECAINIC": "fecha_inicio_secado",
+    "TFECHSECAFINA": "fecha_fin_secado",
+    "TFECHACABINIC": "fecha_inicio_acabado",
+    "TFECHACABFINA": "fecha_fin_acabado",
+    "TNOMBOPERACABINIC": "operario_acabado",
+    # Tejeduría
+    "TORDETEJE": "orden_tejeduria",
+    "TCODITELA": "codigo_tela",
+    "TTIPOTEJI": "tipo_tejido",
+    "TDESCTIPOTEJI": "descripcion_tipo_tejido",
+    "TCODIMAQU": "codigo_maquina_tejeduria",
+    "TNOMBMAQU": "maquina_tejeduria",
+    "TFABRMAQU": "fabricante_maquina_tejeduria",
+    "TFECHTEJE": "fecha_tejido",
+    "TKILOPIEZ": "kilos_pieza",
+    # Hilos
+    "TCODICOLOHILO": "codigo_color_hilo",
+    "TDESCCOLOHILO": "color_hilo",
+    "TTITUHILO": "titulo_hilo",
+    "TCOMPHILO": "composicion_hilo",
+    "TNOMBPROV": "proveedor_hilo",
+    "TNUMELOTE": "numero_lote"
+}
+
+
+def transform_json_for_ai(json_data, max_items_per_array=3):
+    """
+    Transforma un JSON de trazabilidad textil en un formato LEGIBLE para el bot de IA.
+
+    Esta función:
+    1. Renombra las secciones a nombres descriptivos (ej: tztotrazwebtint -> TINTORERIA)
+    2. Renombra los campos importantes a nombres legibles (ej: TNOMBMAQUACAB -> RAMA_ACABADO)
+    3. Agrupa valores únicos de arrays para evitar repetición
+    4. Mantiene la estructura clara: SECCION.campo = valor(es)
+
+    Args:
+        json_data: JSON original de trazabilidad
+        max_items_per_array: Máximo de items a procesar por array (para limitar tamaño)
+
+    Returns:
+        dict: JSON transformado con estructura legible:
+        {
+            "TINTORERIA": {
+                "RAMA_ACABADO": ["Rama 3"],
+                "maquina_tenido": ["Saturno 30.600"],
+                "numero_OB": [4343462, 4343463, ...]
+            },
+            ...
+        }
+    """
+    if not isinstance(json_data, dict):
+        return {"_error": "Input no es un diccionario válido"}
+
+    transformed = {}
+
+    for section_key, section_data in json_data.items():
+        # Ignorar metadata interna
+        if section_key.startswith("_"):
+            continue
+
+        # Obtener nombre legible de la sección
+        section_name = SECTION_NAMES.get(section_key, section_key)
+
+        if isinstance(section_data, list) and len(section_data) > 0:
+            # Procesar arrays - agrupar valores únicos por campo
+            section_result = {}
+            items_to_process = section_data[:max_items_per_array]
+
+            # Recolectar todos los campos y sus valores únicos
+            field_values = {}
+            for item in items_to_process:
+                if isinstance(item, dict):
+                    for field_key, field_value in item.items():
+                        # Obtener nombre legible del campo
+                        field_name = FIELD_NAMES.get(field_key, field_key)
+
+                        if field_name not in field_values:
+                            field_values[field_name] = set()
+
+                        # Agregar valor si no es None ni vacío
+                        if field_value is not None:
+                            str_val = str(field_value).strip()
+                            if str_val and str_val != "None":
+                                field_values[field_name].add(str_val)
+
+            # Convertir sets a listas o valores únicos
+            for field_name, values_set in field_values.items():
+                if len(values_set) == 1:
+                    section_result[field_name] = list(values_set)[0]
+                elif len(values_set) > 1:
+                    # Limitar a 5 valores únicos máximo
+                    section_result[field_name] = list(values_set)[:5]
+
+            # Agregar nota si hay más items de los procesados
+            if len(section_data) > max_items_per_array:
+                section_result["_total_registros"] = len(section_data)
+
+            if section_result:
+                transformed[section_name] = section_result
+
+        elif isinstance(section_data, dict):
+            # Para diccionarios directos
+            section_result = {}
+            for field_key, field_value in section_data.items():
+                field_name = FIELD_NAMES.get(field_key, field_key)
+                if field_value is not None:
+                    section_result[field_name] = field_value
+            if section_result:
+                transformed[section_name] = section_result
+
+    return transformed
+
+
+def flatten_json_for_analysis(json_data, include_section_context=True):
+    """
+    Aplana un JSON de trazabilidad en pares clave=valor simples.
+    Ideal para que el bot vea TODOS los campos disponibles de un vistazo.
+
+    Formato de salida:
+        SECCION.campo = valor
+
+    Ejemplo:
+        TINTORERIA.RAMA_ACABADO = Rama 3
+        TINTORERIA.maquina_tenido = Saturno 30.600
+        COSTURA.operacion = Unir Hombros Con Cinta
+    """
+    if not isinstance(json_data, dict):
+        return {"_error": "Input no es un diccionario válido"}
+
+    # Primero transformar a formato legible
+    transformed = transform_json_for_ai(json_data, max_items_per_array=5)
+
+    # Luego aplanar completamente
+    flattened = {}
+    for section_name, section_data in transformed.items():
+        if isinstance(section_data, dict):
+            for field_name, field_value in section_data.items():
+                if field_name.startswith("_"):
+                    continue
+                key = f"{section_name}.{field_name}"
+                flattened[key] = field_value
+
+    return flattened
+
+
+def flatten_json_compact(json_data, max_items_per_section=5):
+    """
+    Versión compacta: Usa transform_json_for_ai internamente.
+    Mantiene compatibilidad con código existente.
+    """
+    return transform_json_for_ai(json_data, max_items_per_array=max_items_per_section)
+
+
+def prepare_json_for_ai_analysis(json_data, mode="compact"):
+    """
+    Prepara un JSON de trazabilidad para ser analizado por el bot de IA.
+    Esta es la función principal que debe usarse antes de enviar datos al bot.
+
+    IMPORTANTE: Transforma el JSON a un formato legible con:
+    - Secciones renombradas (ej: tztotrazwebtint -> TINTORERIA)
+    - Campos renombrados (ej: TNOMBMAQUACAB -> RAMA_ACABADO)
+    - Valores agrupados y sin duplicados
+
+    Args:
+        json_data: JSON original de trazabilidad (puede ser dict o list de dicts)
+        mode: Modo de preparación:
+            - "compact": Estructura jerárquica legible (recomendado)
+            - "flat": Pares clave=valor aplanados
+
+    Returns:
+        dict: JSON transformado y legible para el bot
+
+    Ejemplo de salida (mode="compact"):
+        {
+            "TINTORERIA": {
+                "RAMA_ACABADO": "Rama 3",
+                "maquina_tenido": "Saturno 30.600",
+                "numero_OB": ["4343462", "4343463"]
+            },
+            "COSTURA": {
+                "operacion_costura": ["Unir Hombros", "Pegar Cuello"]
+            }
+        }
+    """
+    # Si es una lista de JSONs, combinarlos
+    if isinstance(json_data, list):
+        if len(json_data) == 0:
+            return {"_error": "Lista vacía de JSONs"}
+
+        # Transformar y combinar múltiples JSONs
+        combined = {}
+        for single_json in json_data:
+            transformed = transform_json_for_ai(single_json, max_items_per_array=5)
+
+            # Combinar resultados por sección
+            for section_name, section_data in transformed.items():
+                if section_name.startswith("_"):
+                    continue
+
+                if section_name not in combined:
+                    combined[section_name] = {}
+
+                if isinstance(section_data, dict):
+                    for field_name, field_value in section_data.items():
+                        if field_name.startswith("_"):
+                            continue
+
+                        if field_name not in combined[section_name]:
+                            combined[section_name][field_name] = set()
+
+                        # Agregar valores
+                        if isinstance(field_value, list):
+                            for v in field_value:
+                                combined[section_name][field_name].add(str(v))
+                        else:
+                            combined[section_name][field_name].add(str(field_value))
+
+        # Convertir sets a listas
+        for section_name in combined:
+            for field_name in combined[section_name]:
+                values = list(combined[section_name][field_name])
+                if len(values) == 1:
+                    combined[section_name][field_name] = values[0]
+                else:
+                    combined[section_name][field_name] = values[:10]  # Máximo 10 valores
+
+        combined["_metadata"] = {"jsons_combined": len(json_data)}
+
+        # Si modo flat, aplanar el resultado
+        if mode == "flat":
+            flattened = {}
+            for section_name, section_data in combined.items():
+                if section_name.startswith("_"):
+                    continue
+                if isinstance(section_data, dict):
+                    for field_name, field_value in section_data.items():
+                        flattened[f"{section_name}.{field_name}"] = field_value
+            return flattened
+
+        return combined
+
+    # Para un solo JSON
+    if mode == "flat":
+        return flatten_json_for_analysis(json_data)
+    else:
+        return transform_json_for_ai(json_data, max_items_per_array=5)
+
+
+def extract_values_from_flattened(flattened_json, field_patterns):
+    """
+    Extrae valores específicos de un JSON aplanado usando patrones de campo.
+
+    Args:
+        flattened_json: JSON previamente aplanado con prepare_json_for_ai_analysis
+        field_patterns: Lista de patrones de campo a extraer
+            Ej: ["TNOMBMAQUACAB", "tztotrazwebtint.TNOMBMAQUACAB", "TNUMEOB"]
+
+    Returns:
+        dict: Diccionario con los valores extraídos
+            {
+                "TNOMBMAQUACAB": ["Rama 3", "Rama 2"],
+                "TNUMEOB": ["12345"]
+            }
+    """
+    extracted = {}
+
+    for pattern in field_patterns:
+        pattern_lower = pattern.lower()
+        pattern_upper = pattern.upper()
+
+        for key, value in flattened_json.items():
+            if key.startswith("_"):
+                continue
+
+            # Buscar coincidencias (case insensitive)
+            key_lower = key.lower()
+
+            # Coincidencia exacta del campo (al final del path)
+            field_name = key.split(".")[-1].upper() if "." in key else key.upper()
+
+            if (pattern_upper in key.upper() or
+                pattern_lower in key_lower or
+                field_name == pattern_upper):
+
+                # Usar el nombre del campo como key del resultado
+                result_key = field_name if field_name != key.upper() else pattern_upper
+
+                if result_key not in extracted:
+                    extracted[result_key] = []
+
+                if isinstance(value, list):
+                    extracted[result_key].extend(value)
+                else:
+                    extracted[result_key].append(value)
+
+    # Eliminar duplicados
+    for key in extracted:
+        seen = set()
+        unique = []
+        for v in extracted[key]:
+            v_str = str(v)
+            if v_str not in seen:
+                seen.add(v_str)
+                unique.append(v)
+        extracted[key] = unique
+
+    return extracted
+
 
 def extract_relevant_keys_with_ai(sample_jsons, user_question):
     """
-    Usa IA para analizar JSONs de muestra COMPLETOS y determinar qué campos son relevantes.
+    Usa IA para analizar JSONs de muestra TRANSFORMADOS y determinar qué campos son relevantes.
 
-    ESTRATEGIA SIN SESGO: Se pasan los JSONs completos al modelo para que analice
-    libremente sin diccionarios predefinidos que puedan sesgar la decisión.
+    ESTRATEGIA MEJORADA:
+    - Usa solo 3 JSONs de muestra para análisis
+    - Transforma los JSONs a formato legible (secciones y campos renombrados)
+    - Muestra un print del JSON transformado para debugging
 
     Args:
-        sample_jsons: Lista de JSONs de muestra (hasta 5)
+        sample_jsons: Lista de JSONs de muestra - se usarán máximo 3
         user_question: Pregunta original del usuario
 
     Returns:
         dict: {
-            "keys": lista de paths de claves relevantes,
+            "keys": lista de nombres de campos relevantes,
             "has_relevant_data": bool indicando si hay datos útiles,
             "explanation": str explicando por qué no hay datos (si aplica)
         }
@@ -531,54 +1068,111 @@ def extract_relevant_keys_with_ai(sample_jsons, user_question):
     if not isinstance(sample_jsons, list):
         sample_jsons = [sample_jsons]
 
-    print(f"[IA] Analizando {len(sample_jsons)} JSON(s) completo(s) para identificar campos relevantes...")
+    # LIMITAR A 3 JSONs MÁXIMO
+    sample_jsons = sample_jsons[:3]
 
-    # Preparar los JSONs para el contexto (limitando tamaño si es necesario)
-    def prepare_json_for_context(json_data, max_items_per_array=3):
-        """Prepara el JSON limitando arrays muy grandes pero manteniendo estructura completa"""
-        if isinstance(json_data, dict):
-            result = {}
-            for key, value in json_data.items():
-                if isinstance(value, list) and len(value) > max_items_per_array:
-                    # Limitar arrays grandes pero indicar cuántos elementos hay
-                    result[key] = value[:max_items_per_array]
-                    result[f"__{key}_total_items__"] = len(value)
-                elif isinstance(value, dict):
-                    result[key] = prepare_json_for_context(value, max_items_per_array)
-                elif isinstance(value, list):
-                    result[key] = [prepare_json_for_context(item, max_items_per_array) if isinstance(item, dict) else item for item in value]
-                else:
-                    result[key] = value
-            return result
-        return json_data
+    print(f"\n{'='*60}")
+    print(f"[IA] Analizando {len(sample_jsons)} JSON(s) para identificar campos relevantes...")
+    print(f"{'='*60}")
 
-    # Preparar JSONs para el contexto
-    prepared_jsons = [prepare_json_for_context(j) for j in sample_jsons]
+    # Transformar los JSONs a formato legible
+    print(f"\n[PASO 1] Transformando JSONs a formato legible...")
+    transformed_jsons = []
+    for i, j in enumerate(sample_jsons):
+        transformed = transform_json_for_ai(j, max_items_per_array=5)
+        transformed_jsons.append(transformed)
 
-    # Convertir a string JSON legible
-    jsons_str = json.dumps(prepared_jsons, indent=2, ensure_ascii=False, default=str)
+    # PRINT DEL PRIMER JSON TRANSFORMADO PARA DEBUGGING
+    print(f"\n{'='*60}")
+    print(f"[DEBUG] JSON #1 TRANSFORMADO (de {len(sample_jsons)} analizados):")
+    print(f"{'='*60}")
+    print(json.dumps(transformed_jsons[0], indent=2, ensure_ascii=False, default=str))
+    print(f"{'='*60}\n")
 
-    # Si es muy largo, truncar
-    # max_json_chars = 50000  # ~50KB para dejar espacio para el resto del contexto
-    # if len(jsons_str) > max_json_chars:
-    #     jsons_str = jsons_str[:max_json_chars] + "\n... [JSON truncado por tamaño]"
+    # Combinar todos los JSONs transformados en uno solo
+    print(f"[PASO 2] Combinando {len(transformed_jsons)} JSONs transformados...")
+    combined = {}
+    for transformed in transformed_jsons:
+        for section_name, section_data in transformed.items():
+            if section_name.startswith("_"):
+                continue
+
+            if section_name not in combined:
+                combined[section_name] = {}
+
+            if isinstance(section_data, dict):
+                for field_name, field_value in section_data.items():
+                    if field_name.startswith("_"):
+                        continue
+
+                    if field_name not in combined[section_name]:
+                        combined[section_name][field_name] = set()
+
+                    # Agregar valores
+                    if isinstance(field_value, list):
+                        for v in field_value:
+                            combined[section_name][field_name].add(str(v))
+                    else:
+                        combined[section_name][field_name].add(str(field_value))
+
+    # Convertir sets a listas
+    for section_name in combined:
+        for field_name in list(combined[section_name].keys()):
+            values = list(combined[section_name][field_name])
+            if len(values) == 1:
+                combined[section_name][field_name] = values[0]
+            elif len(values) > 1:
+                combined[section_name][field_name] = values[:5]  # Máximo 5 valores
+            else:
+                del combined[section_name][field_name]
+
+    # Convertir a string JSON legible para el prompt
+    jsons_str = json.dumps(combined, indent=2, ensure_ascii=False, default=str)
+
+    # Contar campos totales
+    total_fields = sum(len(section_data) for section_data in combined.values() if isinstance(section_data, dict))
+    print(f"[IA] JSON combinado tiene {len(combined)} secciones y {total_fields} campos únicos")
 
     context = """
-Eres un experto en análisis de datos JSON. Tu tarea es analizar los JSONs proporcionados
+Eres un experto en análisis de datos de trazabilidad textil. Tu tarea es analizar el JSON proporcionado
 y determinar qué campos contienen información relevante para responder la pregunta del usuario.
+
+**IMPORTANTE - FORMATO DEL JSON**:
+El JSON está TRANSFORMADO a un formato legible:
+- Las SECCIONES tienen nombres descriptivos: INFORMACION_GENERAL, TINTORERIA, COSTURA, TEJEDURIA, etc.
+- Los CAMPOS tienen nombres legibles: RAMA_ACABADO, maquina_tenido, operacion_costura, etc.
+- Los valores pueden ser strings únicos o listas de valores
+
+**SECCIONES Y QUÉ CONTIENEN**:
+- INFORMACION_GENERAL: Cliente, estilo, talla, género, descripción de prenda
+- ALMACEN: Número de caja, destino, fecha recepción
+- ACABADO: Fechas de pesado, empaque, auditoría, personas responsables
+- MEDICIONES_ACABADO: Mediciones de control de calidad (talla, dimensiones)
+- COSTURA: Orden de costura, línea, planta, supervisor
+- OPERACIONES_COSTURA: Operaciones específicas (Unir hombros, Pegar cuello, etc.) y operarios
+- CORTE: Orden de corte, número de tendido
+- OPERACIONES_CORTE: Operaciones de corte (Tendido, Corte, Numeración) y operarios
+- TINTORERIA: Máquinas (RAMA_ACABADO, maquina_tenido, maquina_secado), OB, UD, colores, telas
+- TEJEDURIA: Máquinas tejedoras, operarios, fechas de tejido
+- HILOS, LOTES_HILO, PROVEEDORES_HILO: Información de hilos y proveedores
+
+**CAMPOS MUY IMPORTANTES**:
+- RAMA_ACABADO: Las "Ramas" son máquinas de acabado (Rama 1, Rama 2, Rama 3)
+- maquina_tenido: Máquinas de teñido (ej: Saturno 30.600)
+- maquina_secado: Máquinas de secado
+- operacion_costura: Descripción de operaciones de costura
+- operacion_corte: Descripción de operaciones de corte
+- numero_OB: Número de orden de producción
+- numero_UD: Número de unidad de producción
+- operario: Nombre del operario que realizó una operación
 
 **INSTRUCCIONES**:
 1. Lee la pregunta del usuario cuidadosamente
-2. Examina TODOS los campos de TODOS los JSONs proporcionados
-3. Busca campos cuyos NOMBRES o VALORES estén relacionados con la pregunta
-4. Identifica las secciones y campos específicos que contienen la información buscada
-5. Si no tienes varios datos que pueden ayudar a responder, retorna todas, si son muchas las más relevantes
-
-
+2. Busca en el JSON los campos que contengan información relevante
 **FORMATO DE RESPUESTA** (JSON estricto, sin markdown):
 {
     "has_relevant_data": true/false,
-    "keys": ["seccion", "seccion[0].CAMPO2", ...],
+    "keys": ["SECCION.campo", "SECCION.otro_campo", ...],
     "explanation": "Explicación si has_relevant_data es false, null si es true",
     "reasoning": "Breve explicación de por qué estos campos son relevantes"
 }
@@ -586,19 +1180,49 @@ y determinar qué campos contienen información relevante para responder la preg
 **REGLAS**:
 - has_relevant_data: true si encontraste CUALQUIER campo que pueda ayudar a responder
 - has_relevant_data: false SOLO si definitivamente NO hay información relacionada
-- En "keys", incluye el path completo: seccion o seccion[0].CAMPO. Si una sección completa puede tener el dato puedes retornar la seccion completa o si deseas puedes ser especifico y retornar la key de la seccion
+- En "keys", usa el formato SECCION.campo (ej: "TINTORERIA.RAMA_ACABADO")
 - Si hay duda, marca has_relevant_data: true para no perder información
 - Retorna SOLO el JSON, sin texto adicional ni formato markdown
+
+**EJEMPLOS DE RESPUESTA**:
+
+Usuario pregunta: "¿Qué ramas procesaron las prendas?"
+{
+    "has_relevant_data": true,
+    "keys": ["TINTORERIA.RAMA_ACABADO"],
+    "explanation": null,
+    "reasoning": "RAMA_ACABADO en TINTORERIA contiene los nombres de las Ramas de acabado"
+}
+
+Usuario pregunta: "¿Qué operaciones de costura se hicieron?"
+{
+    "has_relevant_data": true,
+    "keys": ["OPERACIONES_COSTURA.operacion_costura", "OPERACIONES_COSTURA.operario"],
+    "explanation": null,
+    "reasoning": "operacion_costura contiene las descripciones de las operaciones realizadas"
+}
+
+Usuario pregunta: "¿Qué máquinas se usaron en tejeduría?"
+{
+    "has_relevant_data": true,
+    "keys": ["TEJEDURIA.maquina_tejeduria", "TEJEDURIA.fabricante_maquina_tejeduria"],
+    "explanation": null,
+    "reasoning": "maquina_tejeduria contiene los nombres de las máquinas de tejeduría"
+}
 """
 
     prompt = f"""
 **PREGUNTA DEL USUARIO**: {user_question}
 
-**JSONs DE MUESTRA PARA ANALIZAR** ({len(sample_jsons)} JSON(s)):
+**JSON TRANSFORMADO PARA ANALIZAR**:
 {jsons_str}
 
-Analiza estos JSONs y determina qué campos contienen información relevante para responder la pregunta.
-Busca tanto en los NOMBRES de campos como en los VALORES.
+Analiza este JSON y determina qué campos contienen información relevante para responder la pregunta.
+Recuerda:
+- Las SECCIONES son: INFORMACION_GENERAL, TINTORERIA, COSTURA, OPERACIONES_COSTURA, TEJEDURIA, etc.
+- Los CAMPOS tienen nombres legibles: RAMA_ACABADO, maquina_tenido, operacion_costura, operario, etc.
+- Los valores ya están visibles (pueden ser strings o listas)
+- Retorna los campos en formato SECCION.campo
 """
 
     try:
@@ -686,7 +1310,7 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
     # ============================================================================
 
     USE_FULL_JSONS = num_hashes <= 10  # Umbral: 10 hashes o menos = JSONs completos
-    SAMPLE_SIZE = 5  # Cantidad de JSONs a analizar para identificar campos
+    SAMPLE_SIZE = 3  # CAMBIADO: Usar solo 3 JSONs de muestra para análisis
 
     if USE_FULL_JSONS:
         print(f"\n[ESTRATEGIA] ≤10 hashes detectados → Usando JSONs COMPLETOS (sin filtrado)")
@@ -697,15 +1321,14 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
         print(f"\n[ESTRATEGIA] >10 hashes detectados → Analizando {SAMPLE_SIZE} JSONs de muestra")
         print(f"  → Se identificarán campos relevantes y se filtrarán los {num_hashes} JSONs")
 
-        # PASO 1: Descargar los primeros N JSONs como muestra
+        # PASO 1: Descargar los primeros 3 JSONs como muestra
         print(f"\n[Paso 5.1] Descargando {SAMPLE_SIZE} JSONs de muestra para análisis...")
 
         sample_hashes = hashes[:SAMPLE_SIZE]
         sample_jsons = []
 
         for i, hash_val in enumerate(sample_hashes):
-            print(hash_val)
-            print(f"  → Descargando muestra {i+1}/{SAMPLE_SIZE}...")
+            print(f"  → Descargando muestra {i+1}/{SAMPLE_SIZE} (hash: {hash_val[:20]}...)")
             json_data = fetch_json_from_swarm(hash_val)
             if json_data:
                 sample_jsons.append(json_data)
@@ -717,10 +1340,10 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
             return {}
 
         print(f"  ✓ {len(sample_jsons)} JSONs de muestra descargados")
-        print(sample_jsons)
 
-        # PASO 2: Usar IA para identificar campos relevantes (SIN SESGO)
-        print(f"\n[Paso 5.2] Analizando JSONs completos con IA (sin diccionario predefinido)...")
+        # PASO 2: Usar IA para identificar campos relevantes
+        # NOTA: extract_relevant_keys_with_ai ahora transforma los JSONs internamente
+        print(f"\n[Paso 5.2] Analizando JSONs con IA (se transformarán a formato legible)...")
         relevance_analysis = extract_relevant_keys_with_ai(sample_jsons, user_question)
 
         # VALIDACIÓN TEMPRANA - Si no hay datos relevantes, ABORTAR
@@ -747,134 +1370,99 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
         relevant_keys = relevance_analysis.get("keys", [])
 
     # PASO 3: Función para extraer solo los campos relevantes de un JSON
-    def extract_fields(json_data, paths):
+    def extract_fields(json_data, field_patterns):
         """
-        Extrae campos específicos siguiendo los paths proporcionados.
-        Soporta paths con índices de array como: tztotrazwebcost[0].TNUMELINECOST
-        IMPORTANTE: NUNCA retorna el JSON completo para evitar exceder límites de tokens.
+        Extrae campos específicos de un JSON usando el nuevo formato de transformación.
+
+        ESTRATEGIA:
+        1. Transforma el JSON a formato legible con transform_json_for_ai
+        2. Busca los campos especificados (formato: SECCION.campo o solo campo)
+
+        Args:
+            json_data: JSON original de trazabilidad
+            field_patterns: Lista de patrones (ej: ["TINTORERIA.RAMA_ACABADO", "RAMA_ACABADO"])
+
+        Returns:
+            dict: Campos extraídos con sus valores únicos
         """
-        import re
+        # Si no hay paths específicos, retornar JSON transformado compacto
+        if not field_patterns or len(field_patterns) == 0:
+            transformed = transform_json_for_ai(json_data, max_items_per_array=3)
 
-        # Si no hay paths específicos, extraer solo un resumen muy compacto
-        if not paths or len(paths) == 0:
-            # Extraer solo metadatos básicos, NO datos completos
-            compact_summary = {}
-
-            # Para JSONs con estructura tztotrazweb*
-            if "tztotrazwebinfo" in json_data and isinstance(json_data["tztotrazwebinfo"], list):
-                info_list = json_data["tztotrazwebinfo"]
-                if len(info_list) > 0:
-                    info = info_list[0]
-                    compact_summary["cliente"] = info.get("TNOMBCLIE", "N/A")
-                    compact_summary["talla"] = info.get("TCODITALL", "N/A")
-                    compact_summary["genero"] = info.get("TDESCGENE", "N/A")
-
-            # Indicar secciones disponibles sin incluir contenido
-            available_sections = list(json_data.keys())
-            compact_summary["secciones_disponibles"] = available_sections[:8]
-            compact_summary["nota"] = "Resumen compacto - datos completos filtrados"
-
-            return compact_summary
-
-        def navigate_path(data, path):
-            """
-            Navega un path que puede contener índices de array.
-            Ejemplos:
-            - tztotrazwebcost[0].TNUMELINECOST
-            - tztotrazwebtint[0].TNOMBMAQUACAB
-            """
-            # Regex para parsear partes del path con posibles índices de array
-            # Ejemplo: "tztotrazwebcost[0]" -> ("tztotrazwebcost", "0")
-            pattern = r'([^\[\]\.]+)(?:\[(\d+)\])?'
-
-            current = data
-            matches = re.findall(pattern, path)
-
-            for key, index in matches:
-                if not key:
+            # Aplanar para resultado más simple
+            compact_result = {}
+            for section_name, section_data in transformed.items():
+                if section_name.startswith("_"):
                     continue
+                if isinstance(section_data, dict):
+                    for field_name, field_value in section_data.items():
+                        if field_name.startswith("_"):
+                            continue
+                        key = f"{section_name}.{field_name}"
+                        compact_result[key] = field_value
+                        if len(compact_result) >= 20:
+                            break
+                if len(compact_result) >= 20:
+                    compact_result["_nota"] = "Resumen limitado a 20 campos"
+                    break
 
-                if isinstance(current, dict):
-                    current = current.get(key)
-                elif isinstance(current, list) and key.isdigit():
-                    idx = int(key)
-                    current = current[idx] if idx < len(current) else None
-                else:
-                    return None
+            return compact_result
 
-                if current is None:
-                    return None
+        # Transformar el JSON a formato legible
+        transformed = transform_json_for_ai(json_data, max_items_per_array=10)
 
-                # Si hay un índice de array, navegarlo
-                if index and isinstance(current, list):
-                    idx = int(index)
-                    current = current[idx] if idx < len(current) else None
+        # Extraer los campos especificados
+        extracted = {}
 
-            return current
+        for pattern in field_patterns:
+            pattern_parts = pattern.split(".")
+            if len(pattern_parts) == 2:
+                # Formato: SECCION.campo
+                section_name = pattern_parts[0]
+                field_name = pattern_parts[1]
 
-        def extract_from_all_array_elements(data, path):
-            """
-            Si el path apunta a un campo dentro de un array, extrae ese campo
-            de TODOS los elementos del array, no solo del primero.
-            """
-            # Detectar si el path tiene un índice de array
-            match = re.match(r'^([^\[]+)\[\d+\]\.(.+)$', path)
-            if not match:
-                return None
+                if section_name in transformed:
+                    section_data = transformed[section_name]
+                    if isinstance(section_data, dict) and field_name in section_data:
+                        extracted[field_name] = section_data[field_name]
+            else:
+                # Solo campo - buscar en todas las secciones
+                field_name = pattern
+                for section_name, section_data in transformed.items():
+                    if section_name.startswith("_"):
+                        continue
+                    if isinstance(section_data, dict):
+                        # Buscar coincidencia exacta o parcial
+                        for key, value in section_data.items():
+                            if key.lower() == field_name.lower() or field_name.lower() in key.lower():
+                                extracted[key] = value
 
-            section_name = match.group(1)  # ej: tztotrazwebcost
-            field_name = match.group(2)    # ej: TNUMELINECOST
+        # Si no se encontró nada, intentar búsqueda más amplia
+        if not extracted:
+            for pattern in field_patterns:
+                pattern_lower = pattern.lower().replace(".", " ").strip()
+                for section_name, section_data in transformed.items():
+                    if section_name.startswith("_"):
+                        continue
+                    if isinstance(section_data, dict):
+                        for key, value in section_data.items():
+                            if pattern_lower in key.lower() or pattern_lower in section_name.lower():
+                                extracted[f"{section_name}.{key}"] = value
 
-            if section_name not in data:
-                return None
+        # Eliminar duplicados y limitar valores
+        for key in list(extracted.keys()):
+            if isinstance(extracted[key], list):
+                # Eliminar duplicados manteniendo orden
+                seen = set()
+                unique = []
+                for v in extracted[key]:
+                    v_str = str(v)
+                    if v_str not in seen and v_str:
+                        seen.add(v_str)
+                        unique.append(v)
+                extracted[key] = unique[:10]  # Máximo 10 valores únicos
 
-            section_data = data[section_name]
-            if not isinstance(section_data, list):
-                return None
-
-            # Extraer el campo de todos los elementos del array
-            values = []
-            for item in section_data[:10]:  # Limitar a 10 elementos
-                if isinstance(item, dict) and field_name in item:
-                    values.append(item[field_name])
-
-            # Retornar valores únicos para evitar duplicados
-            unique_values = list(set(str(v) for v in values if v is not None))
-            return unique_values if unique_values else None
-
-        # Extraer solo los paths especificados
-        result = {}
-        for path in paths:
-            try:
-                # Primero intentar extraer de todos los elementos del array
-                all_values = extract_from_all_array_elements(json_data, path)
-                if all_values:
-                    # Simplificar la key para el resultado
-                    simple_key = path.split('.')[-1] if '.' in path else path
-                    simple_key = re.sub(r'\[\d+\]', '', simple_key)
-                    result[simple_key] = all_values
-                    continue
-
-                # Si no funcionó, intentar navegación directa
-                value = navigate_path(json_data, path)
-
-                if value is not None:
-                    # Simplificar la key para el resultado
-                    simple_key = path.split('.')[-1] if '.' in path else path
-                    simple_key = re.sub(r'\[\d+\]', '', simple_key)
-
-                    # Si el valor es muy grande, resumir
-                    if isinstance(value, dict) and len(str(value)) > 500:
-                        result[simple_key] = f"<objeto_con_{len(value)}_campos>"
-                    elif isinstance(value, list) and len(str(value)) > 500:
-                        result[simple_key] = f"<array_con_{len(value)}_elementos>"
-                    else:
-                        result[simple_key] = value
-
-            except (KeyError, IndexError, TypeError) as e:
-                continue
-
-        return result if result else {"nota": "Campos solicitados no encontrados en JSON"}
+        return extracted if extracted else {"nota": "Campos solicitados no encontrados en JSON"}
 
     # ============================================================================
     # PASO 4: Procesar todos los hashes EN PARALELO
@@ -936,8 +1524,8 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
                 else:
                     # Para JSONs filtrados, mostrar solo primeros campos
                     keys_list = list(result_data.keys())
-                    truncated_data = {k: result_data[k] for k in keys_list[:5]}
-                    truncated_data["_truncated"] = f"Mostrando 5 de {len(keys_list)} campos"
+                    truncated_data = {k: result_data[k] for k in keys_list[:10]}
+                    truncated_data["_truncated"] = f"Mostrando 10 de {len(keys_list)} campos"
                     result_data = truncated_data
 
                 result_str = json.dumps(result_data, ensure_ascii=False, default=str)
@@ -947,7 +1535,7 @@ def fetch_and_filter_jsons(hashes, user_question, max_workers=10):
             return hash_val, result_data, result_size, "success"
 
         except Exception as e:
-            return hash_val, None, 0, f"error: {str(e)[:50]}"
+            return hash_val, None, 0, f"error: {str(e)[:100]}"
 
     # Usar ThreadPoolExecutor para procesamiento paralelo
     print(f"  → Iniciando descarga paralela con {max_workers} workers...")
@@ -1075,13 +1663,51 @@ Analiza los datos proporcionados y genera una respuesta coherente que:
 3. Estructure la información de forma clara (usa listas, bullets si es necesario)
 4. Mencione limitaciones si las hay (ej: "Se analizaron los primeros 100 registros de X total")
 
+**CONTEXTO DEL DOMINIO - TRAZABILIDAD TEXTIL DE PRENDAS**:
+Estos datos provienen de un sistema de trazabilidad textil que rastrea prendas desde la materia prima hasta el acabado final.
+
+**CONVENCIÓN DE NOMBRES DE COLUMNAS**:
+Los nombres de columnas siguen un patrón: comienzan con 'T' seguido de abreviaturas de 4 caracteres.
+Para entender el significado, quita la 'T' inicial y lee de 4 en 4 caracteres:
+- TCODICLIE → CODI + CLIE = Código de Cliente
+- TFABRMAQUTENI → FABR + MAQU + TENI = Fabricación de Máquina de Teñido
+- TNOMBMAQUACAB → NOMB + MAQU + ACAB = Nombre de Máquina de Acabado (conocidas como "Ramas")
+- TDESCOPERESPE → DESC + OPER + ESPE = Descripción de Operación Específica
+- TNUMELINECOST → NUME + LINE + COST = Número de Línea de Costura
+
+**SECCIONES DE DATOS Y SUS SIGNIFICADOS**:
+- tztotrazwebinfo → Información general de la prenda (cliente, estilo, talla, género)
+- tztotrazwebalma → Información de almacén
+- tztotrazwebacab → Acabado final (incluye Ramas de acabado, secado)
+- tztotrazwebacabmedi → Mediciones y control de calidad
+- tztotrazwebcost → Costura/confección
+- tztotrazwebcostoper → Operaciones específicas de costura
+- tztotrazwebcort → Corte de tela
+- tztotrazwebcortoper → Operaciones de corte
+- tztotrazwebtint → Tintorería (teñido, máquinas de teñido, ramas, secado)
+- tztotrazwebteje → Tejeduría (máquinas tejedoras)
+- tztotrazwebhilo → Hilos utilizados
+- tztotrazwebhilolote → Lotes de hilos
+- tztotrazwebhiloloteprin → Facturación y proveedores
+
+**KEYS IMPORTANTES QUE DEBES CONOCER**:
+- TNOMBMAQUACAB → Máquinas de acabado llamadas "Ramas" (ej: Rama 1, Rama 2, Rama 3)
+- TNOMBMAQUSECA → Máquina de secado
+- TNOMBMAQUCORT → Máquina cortadora
+- TFABRMAQUTENI → Máquina de teñido
+- TNUMEOB → Número de OB (Orden de Bordado/Producción)
+- TNUMEUD → Número de UD (Unidad de Producción)
+- TTIPOARTI → Tipo de artículo
+- TDESCOPERESPE → Descripción de operación de costura
+- TNOMBPERS → Nombre del operario
+- TNUMELINECOST → Número de línea de costura
+
 **ESTRUCTURA DE DATOS QUE RECIBIRÁS**:
 - user_question: La pregunta original del usuario
 - razonamiento: Análisis previo del sistema
 - db_summary: Resumen de datos de la base de datos (conteos, agregaciones)
 - jsons: Diccionario con datos FILTRADOS de trazabilidad extraídos de JSONs
   - Cada entrada contiene solo los campos relevantes para la pregunta
-  - Los campos tienen nombres como: TNUMELINECOST (línea de costura), TNOMBMAQU (máquina), TNOMBPERS (operario), etc.
 - metadata: Estadísticas (total_records, jsons_analyzed)
 
 **REGLAS DE RESPUESTA**:
@@ -1091,14 +1717,16 @@ Analiza los datos proporcionados y genera una respuesta coherente que:
 4. Sé conversacional pero preciso - habla en español natural
 5. NO menciones detalles técnicos como "JSON", "hash", "DataFrame" al usuario final
 6. Si la respuesta es un conteo simple, responde directamente: "Hay X prendas..."
-7. Para listas, limita a los más relevantes (máximo 10 items) y indica si hay más
+7. Para listas, limita a los más relevantes (máximo 10 items) e indica si hay más
+8. Cuando veas TNOMBMAQUACAB, tradúcelo como "Rama" en tu respuesta
+9. Interpreta los nombres de columnas usando la convención de 4 caracteres
 
 **FORMATO DE RESPUESTA**:
 - Para conteos simples: "Hay [número] prendas [descripción]."
 - Para listas: Usa bullets o enumeración clara
 - Para análisis complejos: Divide en secciones con subtítulos claros
 
-**EJEMPLOS CON LA NUEVA ESTRUCTURA**:
+**EJEMPLOS**:
 
 Consulta: "¿Cuántas prendas de LACOSTE hay?"
 Datos: {"db_summary": [{"count(*)": 1523}], "metadata": {"total_records": 1523}}
@@ -1108,16 +1736,16 @@ Consulta: "¿Qué ramas procesaron las prendas de LACOSTE?"
 Datos: {
   "db_summary": {"total_registros": 80},
   "jsons": {
-    "hash1": {"TNOMBMAQUACAB": ["rama2"]},
-    "hash2": {"TNOMBMAQUACAB": ["rama2"]},
-    "hash3": {"TNOMBMAQUACAB": ["rama3"]}
+    "hash1": {"TNOMBMAQUACAB": ["Rama 2"]},
+    "hash2": {"TNOMBMAQUACAB": ["Rama 2"]},
+    "hash3": {"TNOMBMAQUACAB": ["Rama 3"]}
   },
   "metadata": {"jsons_analyzed": 80}
 }
-Respuesta: "Las prendas de LACOSTE fueron procesadas en las siguientes líneas/ramas de producción:
+Respuesta: "Las prendas de LACOSTE fueron procesadas en las siguientes Ramas de acabado:
 
-• Rama2
-• Rama3
+• Rama 2
+• Rama 3
 
 Se analizaron 80 prendas en total."
 
@@ -1133,10 +1761,23 @@ Respuesta: "Las máquinas utilizadas en tejeduría fueron:
 • Matsuya 31 G16 F40
 • Semel 5- 20 Agujas"
 
+Consulta: "¿Qué operaciones de costura se realizaron?"
+Datos: {
+  "jsons": {
+    "hash1": {"TDESCOPERESPE": ["Cerrado de costados", "Pegado de cuello"]},
+    "hash2": {"TDESCOPERESPE": ["Cerrado de costados", "Dobladillo"]}
+  }
+}
+Respuesta: "Las operaciones de costura realizadas fueron:
+• Cerrado de costados
+• Pegado de cuello
+• Dobladillo"
+
 **IMPORTANTE**:
 - Responde SOLO con la respuesta final al usuario - sin explicaciones de proceso, sin código, sin jerga técnica
 - Los datos en 'jsons' ya están filtrados y contienen SOLO los campos relevantes
 - Agrupa y resume datos repetidos (ej: contar valores únicos, listar valores distintos)
+- Usa nombres amigables: "Rama" en vez de "TNOMBMAQUACAB", "línea de costura" en vez de "TNUMELINECOST"
 """
 
     try:
@@ -1886,57 +2527,16 @@ Responde SOLO con la corrección (sin explicaciones adicionales).
     else:
         return "Lo siento, no pude generar una respuesta coherente. Por favor, intenta reformular tu pregunta."
 
-
-
-#query = query_bot("¿Cuales son los tipos de talla?")
-#query = query_bot("¿Cuantas registros en total tengo?")
-# query = query_bot("Cuantas OBs pasaron ?")
-# print(query)
-# df_result = execute_query(query)
-# print(df_result)
-
 # Ejemplo de uso del chatbot
 if __name__ == "__main__":
-    # =========================================================================
-    # CONFIGURACIÓN DEL MODELO DE IA
-    # =========================================================================
-    # Puedes elegir entre: AIModel.DEEPSEEK, AIModel.GEMINI
-    # El modelo por defecto es DEEPSEEK
-
-    # Opción 1: Usar DeepSeek (por defecto)
-    # set_ai_model(AIModel.DEEPSEEK)
 
     # Opción 2: Usar Gemini
-    set_ai_model(AIModel.GEMINI)
+    set_ai_model(AIModel.DEEPSEEK)
 
     # Mostrar el modelo actual
     print(f"\n🤖 Modelo de IA activo: {get_current_model().value.upper()}\n")
 
-    # =========================================================================
-    # EJEMPLOS DE CONSULTAS
-    # =========================================================================
-
-    # Ejemplo 1: Consulta simple (solo DB)
-    # respuesta = orquestador_bot("¿Cuántas prendas de la marca LACOSTE hay?")
-    # print(respuesta)
-
-    # Ejemplo 2: Consulta compleja (DB + JSONs)
-    respuesta = orquestador_bot("¿Hay prendas Lascoste que se trabajaron en la rama 3? de haber cuantas prendas se trabajaron?, procesa los primeros 50 hashes que encuentres no me preguntes si quiero o no procesar los primeros 50, solo hazlo!")
+    respuesta = orquestador_bot("¿Hay prendas Lascoste que se trabajaron en la rama 3? de haber cuantas prendas se trabajaron?, procesa los primeros 200 hashes que encuentres no me preguntes si quiero o no procesar los primeros 200, solo hazlo!")
     print(respuesta)
 
-    # Ejemplo 3: Consulta de catálogo
-    # respuesta = orquestador_bot("¿Qué tipos de tejido existen?")
-    # print(respuesta)
-
-    # =========================================================================
-    # EJEMPLO DE CAMBIO DE MODELO EN TIEMPO DE EJECUCIÓN
-    # =========================================================================
-    # Puedes cambiar el modelo en cualquier momento:
-    #
-    # set_ai_model(AIModel.DEEPSEEK)
-    # respuesta1 = orquestador_bot("¿Cuántas prendas hay?")
-    #
-    # set_ai_model(AIModel.GEMINI)
-    # respuesta2 = orquestador_bot("¿Cuántas prendas hay?")
-    #
-    # Esto permite comparar resultados entre modelos
+    
