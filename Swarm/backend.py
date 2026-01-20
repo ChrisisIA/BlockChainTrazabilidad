@@ -11,6 +11,15 @@ import cx_Oracle
 from dotenv import load_dotenv
 from flask_jwt_extended import get_jwt
 from chatbot import orquestador_bot, set_ai_model, AIModel, correct_user_input_with_ai, extract_filters_from_question
+from db import (
+    get_next_conversation_group,
+    get_current_conversation_group,
+    get_conversation_history,
+    get_all_conversations_for_user,
+    save_chat_message,
+    get_conversation_context_for_ai,
+    delete_conversation
+)
 
 # ------------------- Configuraciones y env ----------------------------
 
@@ -312,6 +321,9 @@ def chat():
         - question: Pregunta del usuario (requerido)
         - model: Modelo de IA a usar (opcional, default: "deepseek")
         - filters: Filtros opcionales para incluir en la consulta (opcional)
+        - user_code: Codigo del usuario para historial (opcional)
+        - user_name: Nombre del usuario para historial (opcional)
+        - conversation_group: Grupo de conversacion actual (opcional)
 
     Returns:
         - response: Respuesta del chatbot
@@ -319,12 +331,16 @@ def chat():
         - corrections: Correcciones realizadas en la pregunta
         - extracted_filters: Filtros extraídos de la pregunta para sincronizar con UI
         - corrected_question: Pregunta corregida (si hubo correcciones)
+        - conversation_group: Grupo de conversacion usado
     """
     try:
         data = request.json
         question = data.get("question")
         model = data.get("model", "deepseek").lower()
         filters = data.get("filters", {})
+        user_code = data.get("user_code")
+        user_name = data.get("user_name", "Usuario")
+        conversation_group = data.get("conversation_group")
 
         if not question:
             return jsonify({"error": "Falta el parámetro 'question'"}), 400
@@ -338,6 +354,7 @@ def chat():
         print(f"[CHAT API] Pregunta original: {question}")
         print(f"[CHAT API] Modelo: {model}")
         print(f"[CHAT API] Filtros recibidos: {filters}")
+        print(f"[CHAT API] Usuario: {user_code}, Grupo conversacion: {conversation_group}")
 
         # PASO 1: Corregir errores tipográficos en la pregunta
         corrected_question, corrections = correct_user_input_with_ai(question)
@@ -359,6 +376,14 @@ def chat():
 
         # PASO 4: Agregar filtros al contexto de la pregunta para el orquestador
         question_with_context = corrected_question
+
+        # Agregar contexto del historial de conversacion si existe
+        if user_code and conversation_group:
+            history_context = get_conversation_context_for_ai(user_code, conversation_group)
+            if history_context:
+                question_with_context = f"{history_context}\n\nPregunta actual del usuario: {corrected_question}"
+                print(f"[CHAT API] Contexto de historial agregado")
+
         if final_filters and any(final_filters.values()):
             filter_context = []
             filter_mappings = {
@@ -378,12 +403,26 @@ def chat():
                     filter_context.append(f"{filter_name}: {value}")
 
             if filter_context:
-                question_with_context = f"{corrected_question} (Filtrar por: {', '.join(filter_context)})"
+                question_with_context = f"{question_with_context} (Filtrar por: {', '.join(filter_context)})"
 
-        print(f"[CHAT API] Pregunta final con contexto: {question_with_context}")
+        print(f"[CHAT API] Pregunta final con contexto: {question_with_context[:200]}...")
 
         # PASO 5: Llamar al orquestador del chatbot
         response = orquestador_bot(question_with_context, auto_confirm=True)
+
+        # PASO 6: Guardar en historial si hay usuario
+        if user_code and conversation_group:
+            save_success = save_chat_message(
+                user_code=user_code,
+                user_name=user_name,
+                conversation_group=conversation_group,
+                question=question,  # Guardamos la pregunta original
+                answer=response
+            )
+            if save_success:
+                print(f"[CHAT API] Mensaje guardado en historial")
+            else:
+                print(f"[CHAT API] Error al guardar mensaje en historial")
 
         return jsonify({
             "success": True,
@@ -393,7 +432,8 @@ def chat():
             # Nuevos campos para sincronización bidireccional
             "corrections": corrections if corrections else None,
             "extracted_filters": extracted_filters,
-            "corrected_question": corrected_question if corrections else None
+            "corrected_question": corrected_question if corrections else None,
+            "conversation_group": conversation_group
         }), 200
 
     except Exception as e:
@@ -403,6 +443,154 @@ def chat():
         return jsonify({
             "success": False,
             "error": f"Error al procesar la consulta: {str(e)}"
+        }), 500
+
+
+# -------------------- Endpoints de Historial del Chat --------------------
+
+@app.route('/chat/new_conversation', methods=['POST'])
+def new_conversation():
+    """
+    Crea un nuevo grupo de conversacion para un usuario.
+    Retorna el nuevo ID de grupo.
+    """
+    try:
+        data = request.json
+        user_code = data.get("user_code")
+
+        if not user_code:
+            return jsonify({"error": "Falta el parámetro 'user_code'"}), 400
+
+        new_group = get_next_conversation_group(user_code)
+
+        return jsonify({
+            "success": True,
+            "conversation_group": new_group
+        }), 200
+
+    except Exception as e:
+        print(f"Error en /chat/new_conversation: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Error al crear nueva conversación: {str(e)}"
+        }), 500
+
+
+@app.route('/chat/conversations', methods=['POST'])
+def get_conversations():
+    """
+    Obtiene todas las conversaciones de un usuario.
+    """
+    try:
+        data = request.json
+        user_code = data.get("user_code")
+
+        if not user_code:
+            return jsonify({"error": "Falta el parámetro 'user_code'"}), 400
+
+        conversations = get_all_conversations_for_user(user_code)
+
+        return jsonify({
+            "success": True,
+            "conversations": conversations
+        }), 200
+
+    except Exception as e:
+        print(f"Error en /chat/conversations: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Error al obtener conversaciones: {str(e)}"
+        }), 500
+
+
+@app.route('/chat/history', methods=['POST'])
+def get_chat_history():
+    """
+    Obtiene el historial de una conversacion especifica.
+    """
+    try:
+        data = request.json
+        user_code = data.get("user_code")
+        conversation_group = data.get("conversation_group")
+
+        if not user_code or not conversation_group:
+            return jsonify({"error": "Faltan parámetros 'user_code' o 'conversation_group'"}), 400
+
+        history = get_conversation_history(user_code, conversation_group)
+
+        return jsonify({
+            "success": True,
+            "history": history,
+            "conversation_group": conversation_group
+        }), 200
+
+    except Exception as e:
+        print(f"Error en /chat/history: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Error al obtener historial: {str(e)}"
+        }), 500
+
+
+@app.route('/chat/current_group', methods=['POST'])
+def get_current_group():
+    """
+    Obtiene el grupo de conversacion actual de un usuario.
+    Si no tiene, retorna null para indicar que debe crear uno nuevo.
+    """
+    try:
+        data = request.json
+        user_code = data.get("user_code")
+
+        if not user_code:
+            return jsonify({"error": "Falta el parámetro 'user_code'"}), 400
+
+        current_group = get_current_conversation_group(user_code)
+
+        return jsonify({
+            "success": True,
+            "conversation_group": current_group
+        }), 200
+
+    except Exception as e:
+        print(f"Error en /chat/current_group: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Error al obtener grupo actual: {str(e)}"
+        }), 500
+
+
+@app.route('/chat/delete_conversation', methods=['POST'])
+def delete_chat_conversation():
+    """
+    Elimina una conversacion completa del historial.
+    """
+    try:
+        data = request.json
+        user_code = data.get("user_code")
+        conversation_group = data.get("conversation_group")
+
+        if not user_code or not conversation_group:
+            return jsonify({"error": "Faltan parámetros 'user_code' o 'conversation_group'"}), 400
+
+        success = delete_conversation(user_code, conversation_group)
+
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "Conversación eliminada exitosamente"
+            }), 200
+        else:
+            return jsonify({
+                "success": False,
+                "error": "No se pudo eliminar la conversación"
+            }), 500
+
+    except Exception as e:
+        print(f"Error en /chat/delete_conversation: {e}")
+        return jsonify({
+            "success": False,
+            "error": f"Error al eliminar conversación: {str(e)}"
         }), 500
 
 @app.route('/get_swarm_data', methods=['POST'])
